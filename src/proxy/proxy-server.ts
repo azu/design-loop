@@ -1,6 +1,7 @@
 import http from "node:http";
 import { createConnection } from "node:net";
 import { getInjectScript } from "./inject.ts";
+import { logger } from "../logger.ts";
 
 export type ProxyServerOptions = {
   upstream: string;
@@ -68,7 +69,7 @@ export async function startProxyServer(
         redirect: "manual",
       });
 
-      console.log(`[design-loop proxy] ${req.method} ${req.url} → ${upstreamRes.status} (${upstreamRes.headers.get("content-type") ?? "no content-type"})`);
+      logger.debug(`[design-loop proxy] ${req.method} ${req.url} → ${upstreamRes.status} (${upstreamRes.headers.get("content-type") ?? "no content-type"})`);
 
       // Build response headers, removing iframe-blocking ones
       const responseHeaders: Record<string, string> = {};
@@ -173,14 +174,14 @@ export async function startProxyServer(
 
   // WebSocket passthrough for HMR
   server.on("upgrade", (req, socket, head) => {
-    console.log(`[design-loop proxy] WebSocket upgrade: ${req.url}`);
+    logger.debug(`[design-loop proxy] WebSocket upgrade: ${req.url}`);
     const upstreamPort = parseInt(upstreamUrl.port || "80", 10);
     const upstreamHost = upstreamUrl.hostname;
 
     const upstreamSocket = createConnection(
       { host: upstreamHost, port: upstreamPort },
       () => {
-        console.log(`[design-loop proxy] WebSocket connected to upstream ${upstreamHost}:${upstreamPort}`);
+        logger.debug(`[design-loop proxy] WebSocket connected to upstream ${upstreamHost}:${upstreamPort}`);
 
         // Disable Nagle for real-time forwarding
         socket.setNoDelay(true);

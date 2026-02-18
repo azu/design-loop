@@ -2,6 +2,7 @@ import type http from "node:http";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
+import { logger } from "../logger.ts";
 
 export type PtyServerOptions = {
   port: number;
@@ -41,8 +42,8 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
     fullCommand = `${command} --append-system-prompt "$(cat '${tmpPath}')"`;
   }
 
-  console.log(`[design-loop pty] Command: ${shell} -l -c ${fullCommand}`);
-  console.log(`[design-loop pty] CWD: ${cwd}`);
+  logger.info(`[design-loop pty] Command: ${shell} -l -c ${fullCommand}`);
+  logger.info(`[design-loop pty] CWD: ${cwd}`);
 
   const connections = new Set<WebSocket>();
   let terminal: InstanceType<typeof Bun.Terminal> | null = null;
@@ -103,7 +104,7 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
     lastRows = rows;
     clearBuffer();
 
-    console.log(`[design-loop pty] Spawning with ${cols}x${rows}`);
+    logger.info(`[design-loop pty] Spawning with ${cols}x${rows}`);
 
     terminal = new Bun.Terminal({
       cols,
@@ -129,7 +130,7 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
 
     // Watch for process exit
     proc.exited.then(() => {
-      console.log("[design-loop pty] Process exited");
+      logger.info("[design-loop pty] Process exited");
       processRunning = false;
       broadcastControl({ type: "process-exited" });
     });

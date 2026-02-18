@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import open from "open";
 
 import type { DesignLoopConfig } from "./config.ts";
+import { logger } from "./logger.ts";
 import { tryPort } from "./port.ts";
 import { startProxyServer } from "./proxy/proxy-server.ts";
 import { startPtyServer, type PtyServerResult } from "./pty/pty-server.ts";
@@ -17,6 +18,7 @@ const execFileAsync = promisify(execFile);
 
 export type StartOptions = {
   noBranch?: boolean;
+  noOpen?: boolean;
   port?: number;
 };
 
@@ -44,7 +46,7 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
     try {
       baseBranch = await getCurrentBranch(sourceDir);
       const workBranch = await createWorkBranch(sourceDir);
-      console.log(`[design-loop] Created work branch: ${workBranch} (base: ${baseBranch})`);
+      logger.info(`[design-loop] Created work branch: ${workBranch} (base: ${baseBranch})`);
     } catch {
       console.log("[design-loop] Git branch creation skipped (not a git repo or no commits)");
     }
@@ -90,7 +92,7 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
 
   // Start dev server if command provided
   if (config.devServer.command) {
-    console.log(`[design-loop] Starting dev server: ${config.devServer.command}`);
+    logger.info(`[design-loop] Starting dev server: ${config.devServer.command}`);
     try {
       devServerProcess = await startDevServer({
         command: config.devServer.command,
@@ -105,13 +107,13 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
   }
 
   // Start proxy server
-  console.log(`[design-loop] Starting proxy → ${config.devServer.url}`);
+  logger.info(`[design-loop] Starting proxy → ${config.devServer.url}`);
   proxyServer = await startProxyServer({
     upstream: config.devServer.url,
     port: proxyPort,
     allowedOrigin,
   });
-  console.log(`[design-loop] Proxy: ${proxyUrl}`);
+  logger.info(`[design-loop] Proxy: ${proxyUrl}`);
 
   // Build system prompt for Claude
   const systemPromptParts: string[] = [];
@@ -133,7 +135,7 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
     allowedOrigin,
     systemPrompt,
   });
-  console.log(`[design-loop] PTY WebSocket: ${ptyWsUrl}`);
+  logger.info(`[design-loop] PTY WebSocket: ${ptyWsUrl}`);
 
   // Start UI server
   uiServer = await startUiServer({
@@ -144,11 +146,13 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
     appDir: config.appDir,
     allowedOrigin,
   });
-  console.log(`[design-loop] UI: ${uiUrl}`);
+  logger.info(`[design-loop] UI: ${uiUrl}`);
 
   // Open browser
-  console.log(`[design-loop] Opening browser...`);
-  await open(uiUrl);
+  if (!options.noOpen) {
+    logger.info(`[design-loop] Opening browser...`);
+    await open(uiUrl);
+  }
 
   console.log("\n[design-loop] Ready. Press Ctrl+C to stop.\n");
 }

@@ -2,6 +2,7 @@
 import { parseArgs } from "node:util";
 import { parseCliArgs, resolveConfig } from "../src/config.ts";
 import { startDesignLoop } from "../src/cli.ts";
+import { setLogLevel, type LogLevel } from "../src/logger.ts";
 
 const { values } = parseArgs({
   args: process.argv.slice(2),
@@ -13,6 +14,8 @@ const { values } = parseArgs({
     "app-dir": { type: "string" },
     port: { type: "string", short: "p" },
     "no-branch": { type: "boolean" },
+    "no-open": { type: "boolean" },
+    "log-level": { type: "string" },
   },
   strict: false,
   allowPositionals: true,
@@ -28,11 +31,17 @@ Options:
   --app-dir=<path>   App directory relative to source (for monorepo)
   --port, -p <port>  UI server port (default: 5757)
   --no-branch        Skip creating a git work branch
+  --no-open          Skip opening browser automatically
+  --log-level <lvl>  Log level: debug, info, warn, error (default: info)
   --help, -h         Show this help message`);
   process.exit(0);
+}
+
+if (values["log-level"]) {
+  setLogLevel(values["log-level"] as LogLevel);
 }
 
 const args = parseCliArgs(process.argv.slice(2));
 const config = await resolveConfig(args);
 const port = values.port ? parseInt(String(values.port), 10) : undefined;
-await startDesignLoop(config, { noBranch: !!values["no-branch"], port });
+await startDesignLoop(config, { noBranch: !!values["no-branch"], noOpen: !!values["no-open"], port });

@@ -26,8 +26,6 @@ export async function initTerminal(ptyWsUrl: string): Promise<void> {
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   fitAddon.fit();
-  fitAddonRef = fitAddon;
-  terminalRef = terminal;
 
   // Connect WebSocket to PTY server
   const ws = new WebSocket(ptyWsUrl);
@@ -198,22 +196,5 @@ function sendResize(terminal: Terminal, ws: WebSocket): void {
 export function writeToTerminal(text: string): void {
   if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
     wsInstance.send(text);
-  }
-}
-
-// Re-fit terminal to container (call after PiP restore, etc.)
-let fitAddonRef: FitAddon | null = null;
-let terminalRef: Terminal | null = null;
-
-export function refitTerminal(): void {
-  if (fitAddonRef && terminalRef) {
-    fitAddonRef.fit();
-  }
-}
-
-// Resize terminal to fixed cols/rows (for PiP)
-export function resizeTerminal(cols: number, rows: number): void {
-  if (terminalRef) {
-    terminalRef.resize(cols, rows);
   }
 }
