@@ -119,32 +119,38 @@ export function initElementSelection(proxyOrigin: string, appDir: string | null)
       const text = promptInput.value.trim();
       if (!text) return;
 
-      // Build message with dynamic context (static context is in system prompt)
-      const parts: string[] = [];
+      // Build context parts (URL, elements) separately from user text
+      // Send them as separate writes so Claude doesn't truncate long input
+      const contextParts: string[] = [];
 
-      // Add page URL context
       if (currentPageUrl) {
-        parts.push(`[URL: ${currentPageUrl}]`);
+        contextParts.push(`[URL: ${currentPageUrl}]`);
       }
 
-      // Add element context
       if (selectedElements.length > 0) {
         const labels = selectedElements.map((el) => formatElementLabel(el));
         for (const label of labels) {
-          parts.push(`[${label}]`);
+          contextParts.push(`[${label}]`);
         }
       }
 
-      // Add user instruction
-      parts.push(text);
+      // Write context first, then user text, then Enter — each with a small delay
+      let delay = 0;
+      if (contextParts.length > 0) {
+        writeToTerminal(contextParts.join("\n"));
+        delay = 50;
+      }
 
-      const message = parts.join("\n");
-
-      // Send text first, then Enter separately
-      writeToTerminal(message);
       setTimeout(() => {
-        writeToTerminal("\r");
-      }, 50);
+        if (contextParts.length > 0) {
+          writeToTerminal("\n\n");
+        }
+        writeToTerminal(text);
+        setTimeout(() => {
+          writeToTerminal("\r");
+        }, 50);
+      }, delay);
+
       promptInput.value = "";
 
       // Clear selections after send
