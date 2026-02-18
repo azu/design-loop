@@ -155,6 +155,8 @@ export async function startProxyServer(
       } else {
         // Non-HTML: stream through unchanged
         res.writeHead(upstreamRes.status, responseHeaders);
+        // Flush headers immediately for long-lived streams (SSE, etc.)
+        res.flushHeaders();
         if (upstreamRes.body) {
           const reader = upstreamRes.body.getReader();
           try {

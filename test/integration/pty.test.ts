@@ -15,7 +15,11 @@ afterEach(() => {
 function connectWebSocket(port: number): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}`);
-    ws.on("open", () => resolve(ws));
+    ws.on("open", () => {
+      // Send resize to initialize the terminal (PTY requires resize before spawning)
+      ws.send('\x00{"type":"resize","cols":80,"rows":24}');
+      setTimeout(() => resolve(ws), 200);
+    });
     ws.on("error", reject);
   });
 }

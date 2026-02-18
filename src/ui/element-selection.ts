@@ -1,6 +1,6 @@
 import { writeToTerminal } from "./pty-write.ts";
 
-type ElementInfo = {
+export type ElementInfo = {
   selector: string;
   component: {
     name: string;
@@ -172,7 +172,7 @@ export function initElementSelection(proxyOrigin: string, appDir: string | null)
 }
 
 // Format the full label sent to Claude (should be as informative as possible)
-function formatElementLabel(info: ElementInfo): string {
+export function formatElementLabel(info: ElementInfo): string {
   const lines: string[] = [];
 
   // Component hierarchy + name
