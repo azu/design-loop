@@ -28,8 +28,8 @@ export function initPip(): void {
 
     try {
       const pipWindow = await documentPictureInPicture.requestWindow({
-        width: 480,
-        height: 440,
+        width: 800,
+        height: 600,
       });
 
       // Copy stylesheets
