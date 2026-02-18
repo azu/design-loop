@@ -1,4 +1,6 @@
 import type http from "node:http";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
 
 export type PtyServerOptions = {
@@ -6,7 +8,7 @@ export type PtyServerOptions = {
   cwd: string;
   command?: string;
   allowedOrigin?: string;
-  initialPrompt?: string;
+  systemPrompt?: string;
 };
 
 export type PtyServerResult = {
@@ -23,12 +25,23 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
     cwd,
     command = "claude",
     allowedOrigin,
-    initialPrompt,
+    systemPrompt,
   } = options;
 
   const shell = process.env.SHELL ?? "/bin/zsh";
 
-  console.log(`[design-loop pty] Command: ${shell} -l -c ${command}`);
+  // Build command with --append-system-prompt if provided
+  let fullCommand = command;
+  if (systemPrompt && command === "claude") {
+    // Write system prompt to a temp file to avoid shell escaping issues
+    const tmpDir = join(cwd, ".design-loop");
+    const tmpPath = join(tmpDir, "system-prompt.txt");
+    mkdirSync(tmpDir, { recursive: true });
+    writeFileSync(tmpPath, systemPrompt, "utf-8");
+    fullCommand = `${command} --append-system-prompt "$(cat '${tmpPath}')"`;
+  }
+
+  console.log(`[design-loop pty] Command: ${shell} -l -c ${fullCommand}`);
   console.log(`[design-loop pty] CWD: ${cwd}`);
 
   const connections = new Set<WebSocket>();
@@ -106,7 +119,7 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
       },
     });
 
-    proc = Bun.spawn([shell, "-l", "-c", command], {
+    proc = Bun.spawn([shell, "-l", "-c", fullCommand], {
       terminal,
       cwd,
     });
@@ -120,12 +133,6 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
       processRunning = false;
       broadcastControl({ type: "process-exited" });
     });
-
-    if (initialPrompt) {
-      setTimeout(() => {
-        terminal?.write(initialPrompt);
-      }, 500);
-    }
   }
 
   const wss = new WebSocketServer({

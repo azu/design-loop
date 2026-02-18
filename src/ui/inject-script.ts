@@ -97,9 +97,18 @@
 
       // Show tooltip
       const componentInfo = getReactComponentInfo(target);
+      const textSnippet = getTextSnippet(target);
+      const textPart = textSnippet ? ` "${textSnippet}"` : "";
+      let propsPart = "";
+      if (componentInfo) {
+        const entries = Object.entries(componentInfo.props).slice(0, 3);
+        if (entries.length > 0) {
+          propsPart = " " + entries.map(([k, v]) => `${k}="${v}"`).join(" ");
+        }
+      }
       const label = componentInfo
-        ? `${componentInfo.name} <${target.tagName.toLowerCase()}>`
-        : `<${target.tagName.toLowerCase()}>`;
+        ? `${componentInfo.name}${propsPart}${textPart} <${target.tagName.toLowerCase()}>`
+        : `<${target.tagName.toLowerCase()}>${textPart}`;
       tooltip.textContent = label;
       tooltip.style.display = "block";
       tooltip.style.top = `${Math.max(0, rect.top - 22)}px`;
@@ -142,6 +151,7 @@
         rect: { top: rect.top, left: rect.left, width: rect.width, height: rect.height },
         tagName: target.tagName.toLowerCase(),
         textContent: (target.textContent ?? "").slice(0, 100).trim(),
+        ariaSnapshot: buildAriaSnapshot(target),
       };
 
       window.parent.postMessage({ type: "element-selected", payload: info }, "*");
@@ -194,37 +204,142 @@
     return parts.join(" > ");
   }
 
+  type FiberNode = {
+    type: string | { displayName?: string; name?: string };
+    return: FiberNode | null;
+    pendingProps?: Record<string, unknown>;
+    memoizedProps?: Record<string, unknown>;
+    _debugSource?: { fileName: string; lineNumber: number; columnNumber: number };
+    _debugOwner?: FiberNode | null;
+  };
+
+  type ComponentInfo = {
+    name: string;
+    props: Record<string, string>;
+    source: { fileName: string; lineNumber: number; columnNumber: number } | null;
+    hierarchy: string[];
+  };
+
   // Get React component info from Fiber
-  function getReactComponentInfo(
-    el: HTMLElement,
-  ): { name: string; source: { fileName: string; lineNumber: number; columnNumber: number } | null } | null {
+  function getReactComponentInfo(el: HTMLElement): ComponentInfo | null {
     const fiberKey = Object.keys(el).find((k) =>
       k.startsWith("__reactFiber$"),
     );
     if (!fiberKey) return null;
 
-    let fiber = (el as Record<string, unknown>)[fiberKey] as {
-      type: string | { displayName?: string; name?: string };
-      return: typeof fiber | null;
-      _debugSource?: { fileName: string; lineNumber: number; columnNumber: number };
-    } | null;
+    let fiber = (el as Record<string, unknown>)[fiberKey] as FiberNode | null;
 
     // Walk up from native element to component fiber
-    while (fiber && typeof fiber.type === "string") {
+    while (fiber && (!fiber.type || typeof fiber.type === "string")) {
       fiber = fiber.return;
     }
 
-    if (!fiber || typeof fiber.type === "string") return null;
+    if (!fiber || !fiber.type || typeof fiber.type === "string") return null;
 
-    const name =
+    const name = getFiberName(fiber);
+
+    // Walk up to find source if current fiber doesn't have it
+    let source = fiber._debugSource ?? null;
+    if (!source) {
+      let walker: FiberNode | null = fiber.return;
+      while (walker && !source) {
+        if (typeof walker.type !== "string" && walker._debugSource) {
+          source = walker._debugSource;
+        }
+        walker = walker.return;
+      }
+    }
+
+    // Build component hierarchy (walk up fiber tree)
+    const hierarchy: string[] = [];
+    let parent: FiberNode | null = fiber.return;
+    while (parent && hierarchy.length < 5) {
+      if (typeof parent.type !== "string") {
+        const pName = getFiberName(parent);
+        // Skip internal React wrappers
+        if (pName && !isInternalComponent(pName)) {
+          hierarchy.push(pName);
+        }
+      }
+      parent = parent.return;
+    }
+
+    // Merge fiber props + DOM attributes
+    const props = extractSerializableProps(fiber);
+    addDomAttributes(el, props);
+
+    return { name, props, source, hierarchy };
+  }
+
+  function getFiberName(fiber: FiberNode): string {
+    if (!fiber.type) return "Unknown";
+    if (typeof fiber.type === "string") return fiber.type;
+    return (
       (fiber.type as { displayName?: string }).displayName ??
       (fiber.type as { name?: string }).name ??
-      "Unknown";
+      "Unknown"
+    );
+  }
 
-    return {
-      name,
-      source: fiber._debugSource ?? null,
-    };
+  function isInternalComponent(name: string): boolean {
+    // Skip React internals and common wrappers
+    return /^(Suspense|Fragment|Provider|Consumer|Context|Lazy|Memo|ForwardRef|StrictMode)$/i.test(name);
+  }
+
+  // Extract serializable props from fiber
+  function extractSerializableProps(fiber: FiberNode): Record<string, string> {
+    const raw = fiber.pendingProps ?? fiber.memoizedProps;
+    if (!raw) return {};
+
+    const result: Record<string, string> = {};
+    let count = 0;
+    for (const [key, value] of Object.entries(raw)) {
+      if (count >= 10) break;
+      if (key === "children" || key === "key" || key === "ref") continue;
+      if (key.startsWith("on") || key.startsWith("__")) continue;
+      const t = typeof value;
+      if (t === "string") {
+        result[key] = String(value).length > 50 ? String(value).slice(0, 50) + "..." : String(value);
+        count++;
+      } else if (t === "number" || t === "boolean") {
+        result[key] = String(value);
+        count++;
+      }
+    }
+    return result;
+  }
+
+  // Add useful DOM attributes that might not be in fiber props
+  function addDomAttributes(el: HTMLElement, props: Record<string, string>): void {
+    // className (useful for CSS framework identification like Tailwind, Panda CSS)
+    if (!props["className"] && el.className && typeof el.className === "string") {
+      const cls = el.className.trim();
+      if (cls) {
+        props["className"] = cls.length > 80 ? cls.slice(0, 80) + "..." : cls;
+      }
+    }
+
+    // data-* attributes
+    for (const attr of el.attributes) {
+      if (attr.name.startsWith("data-") && !attr.name.startsWith("data-reactid")) {
+        const key = attr.name;
+        if (!props[key]) {
+          props[key] = attr.value.length > 50 ? attr.value.slice(0, 50) + "..." : attr.value;
+        }
+      }
+    }
+
+    // aria-label (useful for identifying purpose)
+    const ariaLabel = el.getAttribute("aria-label");
+    if (ariaLabel && !props["aria-label"]) {
+      props["aria-label"] = ariaLabel;
+    }
+
+    // role
+    const role = el.getAttribute("role");
+    if (role && !props["role"]) {
+      props["role"] = role;
+    }
   }
 
   // Extract key computed styles
@@ -256,6 +371,200 @@
       }
     }
     return result;
+  }
+
+  // Report current URL to parent frame
+  function reportUrl(): void {
+    window.parent.postMessage(
+      { type: "page-url", url: location.href, pathname: location.pathname },
+      "*",
+    );
+  }
+
+  // Report on load
+  reportUrl();
+
+  // Report on SPA navigation (pushState/replaceState/popstate)
+  const origPushState = history.pushState.bind(history);
+  const origReplaceState = history.replaceState.bind(history);
+  history.pushState = (...args: Parameters<typeof history.pushState>) => {
+    origPushState(...args);
+    reportUrl();
+  };
+  history.replaceState = (...args: Parameters<typeof history.replaceState>) => {
+    origReplaceState(...args);
+    reportUrl();
+  };
+  window.addEventListener("popstate", reportUrl);
+
+  // Build an aria snapshot tree around the selected element
+  function buildAriaSnapshot(target: HTMLElement): string {
+    // Find a meaningful ancestor to use as root (landmark or max 3 levels up)
+    let root: HTMLElement = target;
+    const landmarks = ["main", "nav", "header", "footer", "aside", "section", "article", "form", "dialog"];
+    let parent = target.parentElement;
+    let depth = 0;
+    while (parent && depth < 5) {
+      const role = getEffectiveRole(parent);
+      if (role && landmarks.includes(role)) {
+        root = parent;
+        break;
+      }
+      root = parent;
+      parent = parent.parentElement;
+      depth++;
+    }
+
+    const lines: string[] = [];
+    walkAriaTree(root, target, 0, lines, 0);
+    return lines.join("\n");
+  }
+
+  function walkAriaTree(
+    el: Element,
+    target: Element,
+    indent: number,
+    lines: string[],
+    depth: number,
+  ): void {
+    if (depth > 6 || lines.length > 30) return;
+    if (shouldIgnore(el as HTMLElement)) return;
+
+    const role = getEffectiveRole(el as HTMLElement);
+    const name = getAccessibleName(el as HTMLElement);
+    const isTarget = el === target;
+
+    if (role || isTarget) {
+      const prefix = "  ".repeat(indent);
+      const marker = isTarget ? " ← selected" : "";
+      const attrs: string[] = [];
+
+      // Add useful attributes
+      if (el.tagName === "H1" || el.tagName === "H2" || el.tagName === "H3" ||
+          el.tagName === "H4" || el.tagName === "H5" || el.tagName === "H6") {
+        attrs.push(`level=${el.tagName[1]}`);
+      }
+      if ((el as HTMLElement).getAttribute("aria-current")) {
+        attrs.push(`current="${(el as HTMLElement).getAttribute("aria-current")}"`);
+      }
+      if ((el as HTMLElement).getAttribute("aria-expanded")) {
+        attrs.push(`expanded=${(el as HTMLElement).getAttribute("aria-expanded")}`);
+      }
+      if ((el as HTMLElement).getAttribute("aria-disabled") === "true" ||
+          (el as HTMLInputElement).disabled) {
+        attrs.push("disabled");
+      }
+      if ((el as HTMLInputElement).type && role === "textbox") {
+        attrs.push(`type="${(el as HTMLInputElement).type}"`);
+      }
+
+      const attrStr = attrs.length > 0 ? ` [${attrs.join(", ")}]` : "";
+      const nameStr = name ? ` "${name}"` : "";
+      lines.push(`${prefix}- ${role ?? el.tagName.toLowerCase()}${nameStr}${attrStr}${marker}`);
+      indent++;
+    }
+
+    for (const child of el.children) {
+      walkAriaTree(child, target, indent, lines, depth + 1);
+    }
+  }
+
+  // Map HTML elements to implicit ARIA roles
+  function getEffectiveRole(el: HTMLElement): string | null {
+    const explicit = el.getAttribute("role");
+    if (explicit) return explicit;
+
+    const tag = el.tagName.toLowerCase();
+    const implicitRoles: Record<string, string> = {
+      a: el.hasAttribute("href") ? "link" : "",
+      article: "article",
+      aside: "complementary",
+      button: "button",
+      dialog: "dialog",
+      footer: "contentinfo",
+      form: "form",
+      h1: "heading", h2: "heading", h3: "heading",
+      h4: "heading", h5: "heading", h6: "heading",
+      header: "banner",
+      img: "img",
+      input: getInputRole(el as HTMLInputElement),
+      li: "listitem",
+      main: "main",
+      nav: "navigation",
+      ol: "list",
+      option: "option",
+      section: el.getAttribute("aria-label") || el.getAttribute("aria-labelledby") ? "region" : "",
+      select: "combobox",
+      table: "table",
+      textarea: "textbox",
+      ul: "list",
+    };
+
+    return implicitRoles[tag] || null;
+  }
+
+  function getInputRole(el: HTMLInputElement): string {
+    const type = el.type?.toLowerCase() ?? "text";
+    const inputRoles: Record<string, string> = {
+      button: "button", checkbox: "checkbox", email: "textbox",
+      number: "spinbutton", password: "textbox", radio: "radio",
+      range: "slider", search: "searchbox", submit: "button",
+      tel: "textbox", text: "textbox", url: "textbox",
+    };
+    return inputRoles[type] ?? "textbox";
+  }
+
+  // Get accessible name for an element
+  function getAccessibleName(el: HTMLElement): string {
+    // aria-label takes precedence
+    const ariaLabel = el.getAttribute("aria-label");
+    if (ariaLabel) return ariaLabel.slice(0, 40);
+
+    // aria-labelledby
+    const labelledBy = el.getAttribute("aria-labelledby");
+    if (labelledBy) {
+      const labelEl = document.getElementById(labelledBy);
+      if (labelEl) return (labelEl.textContent ?? "").trim().slice(0, 40);
+    }
+
+    // alt for images
+    if (el.tagName === "IMG") {
+      return (el as HTMLImageElement).alt?.slice(0, 40) ?? "";
+    }
+
+    // Direct text content (only for leaf-ish elements)
+    const role = getEffectiveRole(el);
+    if (role && ["link", "button", "heading", "listitem", "option", "tab"].includes(role)) {
+      let text = "";
+      for (const node of el.childNodes) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          text += node.textContent ?? "";
+        }
+      }
+      text = text.trim();
+      if (text) return text.slice(0, 40);
+      // Fallback to full textContent for simple elements
+      const full = (el.textContent ?? "").trim();
+      if (full.length <= 40) return full;
+      return full.slice(0, 40) + "...";
+    }
+
+    return "";
+  }
+
+  // Get short text snippet from element's direct text nodes (not children)
+  function getTextSnippet(el: HTMLElement): string {
+    let text = "";
+    for (const node of el.childNodes) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent ?? "";
+      }
+    }
+    text = text.trim();
+    if (text.length > 20) {
+      text = text.slice(0, 20) + "...";
+    }
+    return text;
   }
 
   console.log("[design-loop] Element selection script loaded");

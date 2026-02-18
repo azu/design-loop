@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import open from "open";
 
 import type { DesignLoopConfig } from "./config.ts";
-import { findFreePort } from "./port.ts";
+import { tryPort } from "./port.ts";
 import { startProxyServer } from "./proxy/proxy-server.ts";
 import { startPtyServer, type PtyServerResult } from "./pty/pty-server.ts";
 import { startUiServer } from "./ui-server.ts";
@@ -15,7 +15,12 @@ import { createWorkBranch, getCurrentBranch } from "./git.ts";
 
 const execFileAsync = promisify(execFile);
 
-export async function startDesignLoop(config?: DesignLoopConfig): Promise<void> {
+export type StartOptions = {
+  noBranch?: boolean;
+  port?: number;
+};
+
+export async function startDesignLoop(config?: DesignLoopConfig, options?: StartOptions): Promise<void> {
   if (!config) {
     console.log("design-loop: no config provided");
     return;
@@ -35,19 +40,22 @@ export async function startDesignLoop(config?: DesignLoopConfig): Promise<void> 
 
   // Git: record current branch and create work branch
   let baseBranch: string | undefined;
-  try {
-    baseBranch = await getCurrentBranch(sourceDir);
-    const workBranch = await createWorkBranch(sourceDir);
-    console.log(`[design-loop] Created work branch: ${workBranch} (base: ${baseBranch})`);
-  } catch {
-    console.log("[design-loop] Git branch creation skipped (not a git repo or no commits)");
+  if (!options?.noBranch) {
+    try {
+      baseBranch = await getCurrentBranch(sourceDir);
+      const workBranch = await createWorkBranch(sourceDir);
+      console.log(`[design-loop] Created work branch: ${workBranch} (base: ${baseBranch})`);
+    } catch {
+      console.log("[design-loop] Git branch creation skipped (not a git repo or no commits)");
+    }
   }
 
-  // Find free ports
-  const [proxyPort, ptyPort, uiPort] = await Promise.all([
-    findFreePort(),
-    findFreePort(),
-    findFreePort(),
+  // Find ports (use defaults, fall back to random if occupied)
+  const basePort = options?.port ?? 5757;
+  const [uiPort, proxyPort, ptyPort] = await Promise.all([
+    tryPort(basePort),
+    tryPort(basePort + 1),
+    tryPort(basePort + 2),
   ]);
 
   const proxyUrl = `http://127.0.0.1:${proxyPort}`;
@@ -105,18 +113,25 @@ export async function startDesignLoop(config?: DesignLoopConfig): Promise<void> 
   });
   console.log(`[design-loop] Proxy: ${proxyUrl}`);
 
-  // Build initial prompt from config
-  let initialPrompt: string | undefined;
-  if (config.context?.instructions) {
-    initialPrompt = config.context.instructions + "\n";
+  // Build system prompt for Claude
+  const systemPromptParts: string[] = [];
+  systemPromptParts.push(`This is a design-loop session. A designer is viewing the app in a browser and sending you instructions to adjust the UI.`);
+  systemPromptParts.push(`Source directory: ${sourceDir}`);
+  if (config.appDir) {
+    systemPromptParts.push(`App directory: ${config.appDir} (relative to source)`);
   }
+  systemPromptParts.push(`Dev server URL: ${config.devServer.url}`);
+  if (config.context?.instructions) {
+    systemPromptParts.push(`\nDesigner instructions:\n${config.context.instructions}`);
+  }
+  const systemPrompt = systemPromptParts.join("\n");
 
   // Start PTY server
   ptyResult = startPtyServer({
     port: ptyPort,
     cwd: sourceDir,
     allowedOrigin,
-    initialPrompt,
+    systemPrompt,
   });
   console.log(`[design-loop] PTY WebSocket: ${ptyWsUrl}`);
 
@@ -126,6 +141,7 @@ export async function startDesignLoop(config?: DesignLoopConfig): Promise<void> 
     proxyUrl,
     ptyWsUrl,
     sourceDir,
+    appDir: config.appDir,
     allowedOrigin,
   });
   console.log(`[design-loop] UI: ${uiUrl}`);

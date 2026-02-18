@@ -45,16 +45,23 @@ export function initPip(): void {
         }
       }
 
-      // Move terminal container to PiP window
+      // Move terminal container and prompt bar to PiP window
+      const promptBar = document.getElementById("prompt-bar");
       pipWindow.document.body.appendChild(terminalContainer);
+      if (promptBar) {
+        pipWindow.document.body.appendChild(promptBar);
+      }
 
       // Hide right pane and divider
       rightPane.style.display = "none";
       if (divider) divider.style.display = "none";
 
-      // When PiP window is closed, move terminal back
+      // When PiP window is closed, move everything back
       pipWindow.addEventListener("pagehide", () => {
         rightPane.appendChild(terminalContainer);
+        if (promptBar) {
+          rightPane.appendChild(promptBar);
+        }
         rightPane.style.display = "";
         if (divider) divider.style.display = "";
         window.dispatchEvent(new Event("resize"));

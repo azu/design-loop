@@ -12,6 +12,7 @@
     "build:ui": "bun build src/ui/index.ts --outdir dist/ui --target browser --format esm --splitting && bun build src/ui/inject-script.ts --outfile dist/ui/inject-script.js --target browser --format iife",
     "build": "bun run build:server && bun run build:ui",
     "dev:ui": "bun build src/ui/index.ts --outdir dist/ui --target browser --format esm --watch",
+    "dev:test-app": "bun fixtures/test-app/serve.ts",
     "lint": "oxlint .",
     "fmt": "oxfmt .",
     "fmt:check": "oxfmt --check .",

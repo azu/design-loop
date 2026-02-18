@@ -23,6 +23,7 @@ export type DesignLoopConfig = {
   context?: ContextConfig;
   elementSelection?: ElementSelectionConfig;
   source: string;
+  appDir?: string;
 };
 
 type ConfigFile = {
@@ -47,6 +48,7 @@ export type CliArgs = {
   url?: string;
   command?: string;
   source?: string;
+  appDir?: string;
 };
 
 export function parseCliArgs(argv: string[]): CliArgs {
@@ -56,6 +58,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
       url: { type: "string" },
       command: { type: "string" },
       source: { type: "string" },
+      "app-dir": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
     strict: false,
@@ -66,6 +69,7 @@ export function parseCliArgs(argv: string[]): CliArgs {
     url: values.url as string | undefined,
     command: values.command as string | undefined,
     source: values.source as string | undefined,
+    appDir: values["app-dir"] as string | undefined,
   };
 }
 
@@ -94,5 +98,6 @@ export async function resolveConfig(cliArgs: CliArgs): Promise<DesignLoopConfig>
         }
       : undefined,
     source,
+    appDir: cliArgs.appDir,
   };
 }

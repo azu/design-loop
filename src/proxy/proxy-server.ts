@@ -13,6 +13,7 @@ export async function startProxyServer(
 ): Promise<http.Server> {
   const { upstream, port, allowedOrigin } = options;
   const upstreamUrl = new URL(upstream);
+  const proxyOrigin = `http://127.0.0.1:${port}`;
 
   const server = http.createServer(async (req, res) => {
     // Serve the inject script
@@ -37,9 +38,18 @@ export async function startProxyServer(
       // Build headers, stripping Accept-Encoding for uncompressed response
       const forwardHeaders = new Headers();
       for (const [key, value] of Object.entries(req.headers)) {
-        if (key.toLowerCase() === "accept-encoding") continue;
-        if (key.toLowerCase() === "host") {
+        const lower = key.toLowerCase();
+        if (lower === "accept-encoding") continue;
+        if (lower === "host") {
           forwardHeaders.set(key, upstreamUrl.host);
+          continue;
+        }
+        // Rewrite referer/origin to upstream so the app doesn't reject requests
+        if (lower === "referer" || lower === "origin") {
+          if (value !== undefined) {
+            const rewritten = String(value).replace(proxyOrigin, upstream.replace(/\/$/, ""));
+            forwardHeaders.set(key, rewritten);
+          }
           continue;
         }
         if (value !== undefined) {
@@ -57,6 +67,8 @@ export async function startProxyServer(
         body: bodyData ? new Uint8Array(bodyData) : undefined,
         redirect: "manual",
       });
+
+      console.log(`[design-loop proxy] ${req.method} ${req.url} → ${upstreamRes.status} (${upstreamRes.headers.get("content-type") ?? "no content-type"})`);
 
       // Build response headers, removing iframe-blocking ones
       const responseHeaders: Record<string, string> = {};
@@ -78,32 +90,48 @@ export async function startProxyServer(
         }
         // Don't forward content-encoding since we stripped Accept-Encoding
         if (lower === "content-encoding") return;
+        // Rewrite Location header to keep traffic through the proxy
+        if (lower === "location") {
+          responseHeaders[key] = rewriteLocationHeader(value, upstreamUrl, proxyOrigin);
+          return;
+        }
+        // Rewrite Set-Cookie domain to proxy
+        if (lower === "set-cookie") {
+          responseHeaders[key] = value.replace(
+            new RegExp(`domain=${escapeRegExp(upstreamUrl.hostname)}`, "gi"),
+            `domain=127.0.0.1`,
+          );
+          return;
+        }
         responseHeaders[key] = value;
       });
 
       const contentType = upstreamRes.headers.get("content-type") ?? "";
       const isHtml = contentType.includes("text/html");
 
-      if (isHtml && upstreamRes.body) {
-        // Use HTMLRewriter to inject script into body
-        const rewritten = new HTMLRewriter()
-          .on("body", {
-            element(el: { append: (content: string, options: { html: boolean }) => void }) {
-              el.append(
-                '<script src="/design-loop-inject.js"></script>',
-                { html: true },
-              );
-            },
-          })
-          .transform(
-            new Response(upstreamRes.body, {
-              headers: responseHeaders,
-            }),
-          );
-
+      if (isHtml) {
+        // Stream HTML through and append inject script at the end.
+        // Don't buffer with text() — upstream may use SSR streaming (React 18/Next.js App Router).
+        delete responseHeaders["content-length"];
+        delete responseHeaders["Content-Length"];
         res.writeHead(upstreamRes.status, responseHeaders);
-        const reader = rewritten.body?.getReader();
-        if (reader) {
+
+        // Inject WebSocket redirect BEFORE any upstream content.
+        // Must run before Next.js/webpack scripts create HMR connections,
+        // otherwise the patch comes too late.
+        const upstreamOrigin = `${upstreamUrl.protocol}//${upstreamUrl.host}`;
+        res.write(`<script>
+(function(){
+  var uo="${upstreamOrigin}",ph=location.host,uh=new URL(uo).host,O=window.WebSocket;
+  window.__DESIGN_LOOP_UPSTREAM__=uo;
+  function P(u,p){try{var r=new URL(u,location.href);if(r.host===ph){r.host=uh;return new O(r.href,p)}}catch(e){}return new O(u,p)}
+  P.prototype=O.prototype;P.CONNECTING=O.CONNECTING;P.OPEN=O.OPEN;P.CLOSING=O.CLOSING;P.CLOSED=O.CLOSED;
+  window.WebSocket=P;
+})();
+</script>`);
+
+        if (upstreamRes.body) {
+          const reader = upstreamRes.body.getReader();
           try {
             while (true) {
               const { done, value } = await reader.read();
@@ -114,6 +142,8 @@ export async function startProxyServer(
             reader.releaseLock();
           }
         }
+        // Append element selection script after all content
+        res.write('<script src="/design-loop-inject.js"></script>');
         res.end();
       } else {
         // Non-HTML: stream through unchanged
@@ -133,7 +163,7 @@ export async function startProxyServer(
         res.end();
       }
     } catch (err) {
-      console.error("[design-loop proxy] Error:", err);
+      console.error(`[design-loop proxy] ${req.method} ${req.url} → Error:`, err);
       if (!res.headersSent) {
         res.writeHead(502);
         res.end("Proxy error");
@@ -143,15 +173,26 @@ export async function startProxyServer(
 
   // WebSocket passthrough for HMR
   server.on("upgrade", (req, socket, head) => {
+    console.log(`[design-loop proxy] WebSocket upgrade: ${req.url}`);
     const upstreamPort = parseInt(upstreamUrl.port || "80", 10);
     const upstreamHost = upstreamUrl.hostname;
 
     const upstreamSocket = createConnection(
       { host: upstreamHost, port: upstreamPort },
       () => {
-        // Build raw HTTP upgrade request
+        console.log(`[design-loop proxy] WebSocket connected to upstream ${upstreamHost}:${upstreamPort}`);
+
+        // Disable Nagle for real-time forwarding
+        socket.setNoDelay(true);
+        upstreamSocket.setNoDelay(true);
+
+        // Rewrite Host header to upstream
         const headers = Object.entries(req.headers)
-          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+          .map(([k, v]) => {
+            if (k.toLowerCase() === "host") return `${k}: ${upstreamUrl.host}`;
+            if (k.toLowerCase() === "origin") return `${k}: ${upstream.replace(/\/$/, "")}`;
+            return `${k}: ${Array.isArray(v) ? v.join(", ") : v}`;
+          })
           .join("\r\n");
 
         upstreamSocket.write(
@@ -162,8 +203,21 @@ export async function startProxyServer(
         }
 
         // Bidirectional pipe
-        socket.pipe(upstreamSocket);
-        upstreamSocket.pipe(socket);
+        upstreamSocket.on("data", (chunk) => {
+          socket.write(chunk);
+        });
+        socket.on("data", (chunk) => {
+          upstreamSocket.write(chunk);
+        });
+
+        upstreamSocket.on("end", () => {
+          console.log("[design-loop proxy] WebSocket upstream ended");
+          socket.end();
+        });
+        socket.on("end", () => {
+          console.log("[design-loop proxy] WebSocket client ended");
+          upstreamSocket.end();
+        });
       },
     );
 
@@ -183,6 +237,24 @@ export async function startProxyServer(
       resolve(server);
     });
   });
+}
+
+/**
+ * Rewrite Location header: replace upstream origin with proxy origin
+ * so redirects stay within the proxy.
+ */
+function rewriteLocationHeader(location: string, upstreamUrl: URL, proxyOrigin: string): string {
+  const upstreamOrigin = `${upstreamUrl.protocol}//${upstreamUrl.host}`;
+  // Absolute URL pointing to upstream → rewrite to proxy
+  if (location.startsWith(upstreamOrigin)) {
+    return proxyOrigin + location.slice(upstreamOrigin.length);
+  }
+  // Relative URL → fine as-is (browser resolves relative to proxy)
+  return location;
+}
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function readRequestBody(req: http.IncomingMessage): Promise<Buffer> {

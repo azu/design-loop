@@ -20,13 +20,14 @@ export type UiServerOptions = {
   proxyUrl: string;
   ptyWsUrl: string;
   sourceDir: string;
+  appDir?: string;
   allowedOrigin?: string;
 };
 
 export async function startUiServer(
   options: UiServerOptions,
 ): Promise<http.Server> {
-  const { port, proxyUrl, ptyWsUrl, sourceDir, allowedOrigin } = options;
+  const { port, proxyUrl, ptyWsUrl, sourceDir, appDir, allowedOrigin } = options;
   const uiBaseUrl = `http://127.0.0.1:${port}`;
 
   // Resolve UI dist directory
@@ -42,7 +43,7 @@ export async function startUiServer(
     htmlDir = join(process.cwd(), "src", "ui");
   }
 
-  const config = JSON.stringify({ proxyUrl, ptyWsUrl, uiBaseUrl });
+  const config = JSON.stringify({ proxyUrl, ptyWsUrl, uiBaseUrl, appDir: appDir ?? null });
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);

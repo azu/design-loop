@@ -9,6 +9,7 @@ declare global {
     proxyUrl: string;
     ptyWsUrl: string;
     uiBaseUrl: string;
+    appDir: string | null;
   };
 
   // eslint-disable-next-line no-var
@@ -30,7 +31,7 @@ async function main(): Promise<void> {
 
   // Initialize components
   initSplitPane();
-  initElementSelection(config.proxyUrl);
+  initElementSelection(config.proxyUrl, config.appDir);
   initPip();
   initImageUpload(config.uiBaseUrl);
 
