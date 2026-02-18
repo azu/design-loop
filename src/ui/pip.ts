@@ -29,7 +29,7 @@ export function initPip(): void {
     try {
       const pipWindow = await documentPictureInPicture.requestWindow({
         width: 480,
-        height: 360,
+        height: 440,
       });
 
       // Copy stylesheets
@@ -45,12 +45,30 @@ export function initPip(): void {
         }
       }
 
-      // Move terminal container and prompt bar to PiP window
+      const pipDoc = pipWindow.document;
+
+      // Get prompt-bar BEFORE moving terminal (both are in right-pane)
       const promptBar = document.getElementById("prompt-bar");
-      pipWindow.document.body.appendChild(terminalContainer);
+
+      // Create a wrapper with explicit layout to isolate from ghostty-web canvas sizing
+      const wrapper = pipDoc.createElement("div");
+      wrapper.id = "pip-wrapper";
+      wrapper.style.cssText = [
+        "position: absolute",
+        "inset: 0",
+        "display: grid",
+        "grid-template-rows: 1fr auto",
+        "overflow: hidden",
+        "background: #0a0a0c",
+      ].join(";");
+
+      // Move elements into wrapper
+      wrapper.appendChild(terminalContainer);
       if (promptBar) {
-        pipWindow.document.body.appendChild(promptBar);
+        wrapper.appendChild(promptBar);
       }
+      pipDoc.body.style.cssText = "margin:0;padding:0;background:#0a0a0c;";
+      pipDoc.body.appendChild(wrapper);
 
       // Hide right pane and divider
       rightPane.style.display = "none";

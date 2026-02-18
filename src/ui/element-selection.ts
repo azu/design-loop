@@ -136,11 +136,10 @@ export function initElementSelection(proxyOrigin: string, appDir: string | null)
       // Send context as bracketed paste (collapsed by Claude Code TUI),
       // then space + user text as normal input (visible), then Enter.
       // 100ms delays so Claude Code treats them as separate inputs.
-      let delay = 0;
       if (contextParts.length > 0) {
         const attachment = contextParts.join("\n");
         writeToTerminal(`\x1b[200~${attachment}\x1b[201~`);
-        delay = 100;
+
       }
       setTimeout(() => {
         if (contextParts.length > 0) {
@@ -149,8 +148,8 @@ export function initElementSelection(proxyOrigin: string, appDir: string | null)
         writeToTerminal(text);
         setTimeout(() => {
           writeToTerminal("\r");
-        }, 100);
-      }, 100);
+        }, 200);
+      }, 200);
 
       promptInput.value = "";
 
