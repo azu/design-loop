@@ -1,0 +1,36 @@
+{
+  "name": "design-loop",
+  "version": "0.1.0",
+  "description": "Local website design adjustment tool for designers",
+  "type": "module",
+  "bin": {
+    "design-loop": "./dist/server/bin/design-loop.js"
+  },
+  "scripts": {
+    "start": "bun run bin/design-loop.ts",
+    "build:server": "tsc -p tsconfig.build.json",
+    "build:ui": "bun build src/ui/index.ts --outdir dist/ui --target browser --format esm --splitting && bun build src/ui/inject-script.ts --outfile dist/ui/inject-script.js --target browser --format iife",
+    "build": "bun run build:server && bun run build:ui",
+    "dev:ui": "bun build src/ui/index.ts --outdir dist/ui --target browser --format esm --watch",
+    "lint": "oxlint .",
+    "fmt": "oxfmt .",
+    "fmt:check": "oxfmt --check .",
+    "typecheck": "@typescript/native-preview --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "ghostty-web": "0.4.0-next.7.g03ead6e",
+    "open": "^11.0.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.9",
+    "@types/node": "^25.2.3",
+    "@types/ws": "^8.18.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260218.1",
+    "oxfmt": "^0.33.0",
+    "oxlint": "^1.48.0",
+    "typescript": "^5.9.3"
+  },
+  "license": "MIT"
+}
