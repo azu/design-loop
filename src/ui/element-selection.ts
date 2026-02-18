@@ -119,8 +119,7 @@ export function initElementSelection(proxyOrigin: string, appDir: string | null)
       const text = promptInput.value.trim();
       if (!text) return;
 
-      // Build context parts (URL, elements) separately from user text
-      // Send them as separate writes so Claude doesn't truncate long input
+      // Build context (URL, elements) as attachment
       const contextParts: string[] = [];
 
       if (currentPageUrl) {
@@ -134,21 +133,21 @@ export function initElementSelection(proxyOrigin: string, appDir: string | null)
         }
       }
 
-      // Write context first, then user text, then Enter — each with a small delay
+      // Send context as bracketed paste (collapsed by Claude Code TUI),
+      // then user text as normal input (visible), then Enter to submit.
+      // 100ms delay so Claude Code treats them as separate inputs.
       let delay = 0;
       if (contextParts.length > 0) {
-        writeToTerminal(contextParts.join("\n"));
-        delay = 50;
+        const attachment = contextParts.join("\n");
+        writeToTerminal(`\x1b[200~${attachment}\x1b[201~`);
+        delay = 100;
       }
 
       setTimeout(() => {
-        if (contextParts.length > 0) {
-          writeToTerminal("\n\n");
-        }
         writeToTerminal(text);
         setTimeout(() => {
           writeToTerminal("\r");
-        }, 50);
+        }, 100);
       }, delay);
 
       promptInput.value = "";
