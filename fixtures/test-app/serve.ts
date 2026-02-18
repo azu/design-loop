@@ -16,7 +16,7 @@ watch(dir, { recursive: true }, () => {
 });
 
 const server = Bun.serve({
-  port: 3000,
+  port: 3456,
   async fetch(req) {
     const url = new URL(req.url);
 

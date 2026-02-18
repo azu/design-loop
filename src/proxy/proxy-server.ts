@@ -62,11 +62,17 @@ export async function startProxyServer(
         req.method !== "GET" && req.method !== "HEAD"
           ? await readRequestBody(req)
           : undefined;
+
+      // Abort upstream fetch when client disconnects (e.g. SSE reconnect)
+      const abortController = new AbortController();
+      res.on("close", () => abortController.abort());
+
       const upstreamRes = await fetch(targetUrl.toString(), {
         method: req.method,
         headers: forwardHeaders,
         body: bodyData ? new Uint8Array(bodyData) : undefined,
         redirect: "manual",
+        signal: abortController.signal,
       });
 
       logger.debug(`[design-loop proxy] ${req.method} ${req.url} → ${upstreamRes.status} (${upstreamRes.headers.get("content-type") ?? "no content-type"})`);
@@ -164,7 +170,10 @@ export async function startProxyServer(
         res.end();
       }
     } catch (err) {
-      console.error(`[design-loop proxy] ${req.method} ${req.url} → Error:`, err);
+      // Ignore abort errors (client disconnected, e.g. SSE reconnect)
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (err instanceof Error && err.name === "AbortError") return;
+      logger.debug(`[design-loop proxy] ${req.method} ${req.url} → Error:`, err);
       if (!res.headersSent) {
         res.writeHead(502);
         res.end("Proxy error");
