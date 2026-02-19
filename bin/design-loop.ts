@@ -50,7 +50,7 @@ Options:
 
 if (values.version) {
   const pkg = await import("../package.json");
-  console.log(`design-loop v${pkg.version}`);
+  console.log(`design-loop v${pkg.default.version}`);
   process.exit(0);
 }
 
