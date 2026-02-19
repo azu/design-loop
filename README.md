@@ -2,6 +2,8 @@
 
 Local website design adjustment tool. Interactively modify UI in collaboration with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
+![ScreenSHot](screenshot.png)
+
 ## Prerequisites
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
@@ -64,6 +66,30 @@ Place `.design-loop.json` in the project root to omit CLI options.
 ```bash
 design-loop
 ```
+
+Additional config options:
+
+```json
+{
+  "devServer": {
+    "url": "http://localhost:3000",
+    "command": "npm run dev"
+  },
+  "context": {
+    "files": ["src/theme.css", "src/tokens.ts"],
+    "instructions": "Use existing design tokens and Tailwind utilities only"
+  },
+  "elementSelection": {
+    "framework": "react",
+    "ignoreSelectors": [".tooltip", ".overlay"]
+  }
+}
+```
+
+- `context.files` - Design token files to include as context for Claude
+- `context.instructions` - Project-specific instructions for Claude
+- `elementSelection.framework` - UI framework name (default: `"react"`)
+- `elementSelection.ignoreSelectors` - CSS selectors to exclude from element selection
 
 ## Update
 
