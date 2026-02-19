@@ -1,18 +1,17 @@
 # design-loop
 
-A design tool that lets designers directly edit websites through a visual UI.
+A browser-based frontend for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that lets designers edit websites without touching code.
 
-Select elements on the page, describe changes in natural language, and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) modifies the source code — no coding required.
+Preview your site and Claude Code side by side in a single browser window — no terminal or editor needed. Select elements, describe changes in natural language, and Claude Code modifies the source code directly. Since it runs Claude Code under the hood, anything Claude Code can do is supported.
 
 ![ScreenShot](./screenshot.png)
 
 ## Features
 
-- **Visual Element Selection** — Click any element on the page to select it. The tool detects React components, props, and source file locations automatically.
-- **Natural Language Editing** — Describe design changes in plain text. Claude Code modifies the source code directly.
-- **Live Preview** — See changes in real-time with hot reload support (HMR, SSE). Works with Next.js, Vite, and other dev servers.
-- **Split Pane UI** — Resizable preview and terminal side by side. Drag the divider to adjust layout.
-- **Picture-in-Picture** — Detach the terminal into a floating window (Chromium).
+- **Visual Element Selection** — Click any element on the page to select it and pass it as context to Claude Code.
+- **React Integration** — Automatically detects React component names, props, and source file paths. Works with Next.js and other React frameworks.
+- **Live Preview** — See changes in real-time with hot reload support (HMR, SSE).
+- **Single Window Workflow** — Preview and Claude Code terminal side by side in one browser tab. Replaces the three-app workflow (terminal + editor + browser).
 - **File Upload** — Drag-and-drop or paste images and files to include in design instructions.
 - **Dev Server Proxy** — Transparent proxy that preserves HMR/WebSocket connections and injects the selection overlay.
 - **Config File** — `.design-loop.json` for project-specific settings: dev server command, design tokens, and framework options.
