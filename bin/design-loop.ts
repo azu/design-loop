@@ -49,9 +49,7 @@ Options:
 }
 
 if (values.version) {
-  const { createRequire } = await import("node:module");
-  const require = createRequire(import.meta.url);
-  const pkg = require("../package.json") as { version: string };
+  const pkg = await import("../package.json");
   console.log(`design-loop v${pkg.version}`);
   process.exit(0);
 }
