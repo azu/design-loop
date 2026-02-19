@@ -67,7 +67,7 @@ Place `.design-loop.json` in the project root to omit CLI options.
 design-loop
 ```
 
-Additional config options:
+Additional config options (experimental — may break in future releases):
 
 ```json
 {
