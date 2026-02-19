@@ -49,7 +49,7 @@ Options:
 }
 
 if (values.version) {
-  const pkg = await import("../package.json");
+  const pkg = await import("../package.json", { with: { type: "json" } });
   console.log(`design-loop v${pkg.default.version}`);
   process.exit(0);
 }

@@ -2,7 +2,7 @@ import { createWriteStream } from "node:fs";
 import { chmod, rename, unlink } from "node:fs/promises";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
-import { createRequire } from "node:module";
+import pkg from "../package.json" with { type: "json" };
 
 const REPO = "azu/design-loop";
 
@@ -15,8 +15,6 @@ type GitHubRelease = {
 };
 
 function getCurrentVersion(): string {
-  const require = createRequire(import.meta.url);
-  const pkg = require("../package.json") as { version: string };
   return pkg.version;
 }
 
