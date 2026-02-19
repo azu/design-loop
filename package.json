@@ -1,6 +1,6 @@
 {
   "name": "design-loop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Local website design adjustment tool for designers",
   "type": "module",
   "bin": {
