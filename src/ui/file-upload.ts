@@ -107,7 +107,58 @@ async function uploadFiles(apiBaseUrl: string, files: File[]): Promise<void> {
     const data = (await res.json()) as { paths: string[] };
     const pathStr = data.paths.join(" ");
     writeToTerminal(pathStr + " ");
+    animateUploadSuccess();
   } catch (err) {
     console.error("[design-loop] Upload error:", err);
   }
+}
+
+function animateUploadSuccess(): void {
+  const uploadBtn = document.getElementById("upload-btn");
+  const svg = uploadBtn?.querySelector("svg");
+  if (!uploadBtn || !svg) return;
+
+  const originalHTML = svg.innerHTML;
+  const originalColor = svg.style.color;
+
+  // チェックマークに置換（stroke-dasharrayで描画アニメーション用）
+  svg.innerHTML = `<polyline points="4 8 7 11.5 12 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="stroke-dasharray:20;stroke-dashoffset:20"/>`;
+  svg.style.color = "#22c55e";
+
+  const checkLine = svg.querySelector("polyline");
+
+  // ボタン全体をポップさせる
+  uploadBtn.animate(
+    [
+      { transform: "scale(1)" },
+      { transform: "scale(1.4)" },
+      { transform: "scale(1.25)" },
+    ],
+    { duration: 300, easing: "cubic-bezier(0.34, 1.56, 0.64, 1)", fill: "forwards" }
+  );
+
+  // チェックマークをストローク描画
+  checkLine?.animate(
+    [{ strokeDashoffset: "20" }, { strokeDashoffset: "0" }],
+    { duration: 250, delay: 100, easing: "ease-out", fill: "forwards" }
+  );
+
+  // 元に戻す
+  setTimeout(() => {
+    uploadBtn.animate(
+      [{ transform: "scale(1.25)" }, { transform: "scale(1)" }],
+      { duration: 200, easing: "ease-in-out", fill: "forwards" }
+    );
+    svg.animate(
+      [{ opacity: 1 }, { opacity: 0 }],
+      { duration: 150, easing: "ease-out" }
+    ).onfinish = () => {
+      svg.innerHTML = originalHTML;
+      svg.style.color = originalColor;
+      svg.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        { duration: 150, easing: "ease-in" }
+      );
+    };
+  }, 1500);
 }
