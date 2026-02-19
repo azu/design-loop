@@ -22,7 +22,7 @@ export type DesignLoopConfig = {
   devServer: DevServerConfig;
   context?: ContextConfig;
   elementSelection?: ElementSelectionConfig;
-  source: string;
+  source?: string;
   appDir?: string;
 };
 
@@ -74,13 +74,13 @@ export function parseCliArgs(argv: string[]): CliArgs {
 }
 
 export async function resolveConfig(cliArgs: CliArgs): Promise<DesignLoopConfig> {
-  const source = cliArgs.source ?? ".";
-  const configFile = await loadConfigFile(source);
+  const source = cliArgs.source;
+  const configFile = source ? await loadConfigFile(source) : null;
 
   const url = cliArgs.url ?? configFile?.devServer?.url;
   if (!url) {
     throw new Error(
-      "Dev server URL is required. Use --url or set devServer.url in .design-loop.json",
+      "URL is required. Use --url or set devServer.url in .design-loop.json",
     );
   }
 

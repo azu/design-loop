@@ -21,17 +21,21 @@ const { values } = parseArgs({
 });
 
 if (values.help) {
-  console.log(`Usage: design-loop run [options]
+  console.log(`Usage: design-loop [options]
 
 Options:
-  --url=<url>        Dev server URL (e.g. http://localhost:3000)
+  --url=<url>        Target URL (local dev server or deployed site)
   --command=<cmd>    Command to start dev server (e.g. "pnpm run dev")
-  --source=<path>    Path to source directory (default: ".")
+  --source=<path>    Path to source directory (omit for external URL mode)
   --app-dir=<path>   App directory relative to source (for monorepo)
   --port, -p <port>  UI server port (default: 5757)
   --no-open          Skip opening browser automatically
   --log-level <lvl>  Log level: debug, info, warn, error (default: info)
-  --help, -h         Show this help message`);
+  --help, -h         Show this help message
+
+Examples:
+  design-loop --url=http://localhost:3000 --source=.
+  design-loop --url=https://example.com`);
   process.exit(0);
 }
 

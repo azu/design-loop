@@ -25,7 +25,7 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
     return;
   }
 
-  const sourceDir = resolvePath(config.source);
+  const sourceDir = config.source ? resolvePath(config.source) : process.cwd();
 
   // Check if claude command is available
   try {
@@ -102,12 +102,17 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
 
   // Build system prompt for Claude
   const systemPromptParts: string[] = [];
-  systemPromptParts.push(`This is a design-loop session. A designer is viewing the app in a browser and sending you instructions to adjust the UI.`);
-  systemPromptParts.push(`Source directory: ${sourceDir}`);
-  if (config.appDir) {
-    systemPromptParts.push(`App directory: ${config.appDir} (relative to source)`);
+  if (config.source) {
+    systemPromptParts.push(`This is a design-loop session. A designer is viewing the app in a browser and sending you instructions to adjust the UI.`);
+    systemPromptParts.push(`Source directory: ${sourceDir}`);
+    if (config.appDir) {
+      systemPromptParts.push(`App directory: ${config.appDir} (relative to source)`);
+    }
+  } else {
+    systemPromptParts.push(`This is a design-loop session in external URL mode. A designer is viewing a deployed website and providing design feedback.`);
+    systemPromptParts.push(`No local source directory is available. Focus on describing design changes, generating CSS overrides, or providing implementation guidance.`);
   }
-  systemPromptParts.push(`Dev server URL: ${config.devServer.url}`);
+  systemPromptParts.push(`Target URL: ${config.devServer.url}`);
   if (config.context?.instructions) {
     systemPromptParts.push(`\nDesigner instructions:\n${config.context.instructions}`);
   }

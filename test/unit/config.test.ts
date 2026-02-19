@@ -39,7 +39,7 @@ describe("parseCliArgs", () => {
 describe("resolveConfig", () => {
   test("throws if no URL is provided", async () => {
     await expect(resolveConfig({ source: "/nonexistent" })).rejects.toThrow(
-      "Dev server URL is required",
+      "URL is required",
     );
   });
 
@@ -54,10 +54,18 @@ describe("resolveConfig", () => {
     expect(config.source).toBe("/tmp");
   });
 
-  test("defaults source to '.'", async () => {
+  test("source is undefined when not provided", async () => {
     const config = await resolveConfig({
       url: "http://localhost:3000",
     });
-    expect(config.source).toBe(".");
+    expect(config.source).toBeUndefined();
+  });
+
+  test("accepts https URL", async () => {
+    const config = await resolveConfig({
+      url: "https://example.com",
+    });
+    expect(config.devServer.url).toBe("https://example.com");
+    expect(config.source).toBeUndefined();
   });
 });

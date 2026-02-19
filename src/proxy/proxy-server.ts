@@ -1,5 +1,6 @@
 import http from "node:http";
 import { createConnection } from "node:net";
+import { connect as tlsConnect } from "node:tls";
 import { getInjectScript } from "./inject.ts";
 import { logger } from "../logger.ts";
 
@@ -185,54 +186,58 @@ export async function startProxyServer(
   // WebSocket passthrough for HMR
   server.on("upgrade", (req, socket, head) => {
     logger.debug(`[design-loop proxy] WebSocket upgrade: ${req.url}`);
-    const upstreamPort = parseInt(upstreamUrl.port || "80", 10);
+    const isUpstreamTls = upstreamUrl.protocol === "https:";
+    const defaultPort = isUpstreamTls ? 443 : 80;
+    const upstreamPort = parseInt(upstreamUrl.port || String(defaultPort), 10);
     const upstreamHost = upstreamUrl.hostname;
 
-    const upstreamSocket = createConnection(
-      { host: upstreamHost, port: upstreamPort },
-      () => {
-        logger.debug(`[design-loop proxy] WebSocket connected to upstream ${upstreamHost}:${upstreamPort}`);
+    const connectFn = isUpstreamTls
+      ? () => tlsConnect({ host: upstreamHost, port: upstreamPort, servername: upstreamHost })
+      : () => createConnection({ host: upstreamHost, port: upstreamPort });
 
-        // Disable Nagle for real-time forwarding
-        if ("setNoDelay" in socket && typeof socket.setNoDelay === "function") {
-          socket.setNoDelay(true);
-        }
-        upstreamSocket.setNoDelay(true);
+    const upstreamSocket = connectFn();
+    upstreamSocket.on("connect", () => {
+      logger.debug(`[design-loop proxy] WebSocket connected to upstream ${upstreamHost}:${upstreamPort}`);
 
-        // Rewrite Host header to upstream
-        const headers = Object.entries(req.headers)
-          .map(([k, v]) => {
-            if (k.toLowerCase() === "host") return `${k}: ${upstreamUrl.host}`;
-            if (k.toLowerCase() === "origin") return `${k}: ${upstream.replace(/\/$/, "")}`;
-            return `${k}: ${Array.isArray(v) ? v.join(", ") : v}`;
-          })
-          .join("\r\n");
+      // Disable Nagle for real-time forwarding
+      if ("setNoDelay" in socket && typeof socket.setNoDelay === "function") {
+        socket.setNoDelay(true);
+      }
+      upstreamSocket.setNoDelay(true);
 
-        upstreamSocket.write(
-          `${req.method} ${req.url} HTTP/${req.httpVersion}\r\n${headers}\r\n\r\n`,
-        );
-        if (head.length > 0) {
-          upstreamSocket.write(head);
-        }
+      // Rewrite Host header to upstream
+      const headers = Object.entries(req.headers)
+        .map(([k, v]) => {
+          if (k.toLowerCase() === "host") return `${k}: ${upstreamUrl.host}`;
+          if (k.toLowerCase() === "origin") return `${k}: ${upstream.replace(/\/$/, "")}`;
+          return `${k}: ${Array.isArray(v) ? v.join(", ") : v}`;
+        })
+        .join("\r\n");
 
-        // Bidirectional pipe
-        upstreamSocket.on("data", (chunk) => {
-          socket.write(chunk);
-        });
-        socket.on("data", (chunk) => {
-          upstreamSocket.write(chunk);
-        });
+      upstreamSocket.write(
+        `${req.method} ${req.url} HTTP/${req.httpVersion}\r\n${headers}\r\n\r\n`,
+      );
+      if (head.length > 0) {
+        upstreamSocket.write(head);
+      }
 
-        upstreamSocket.on("end", () => {
-          console.log("[design-loop proxy] WebSocket upstream ended");
-          socket.end();
-        });
-        socket.on("end", () => {
-          console.log("[design-loop proxy] WebSocket client ended");
-          upstreamSocket.end();
-        });
-      },
-    );
+      // Bidirectional pipe
+      upstreamSocket.on("data", (chunk) => {
+        socket.write(chunk);
+      });
+      socket.on("data", (chunk) => {
+        upstreamSocket.write(chunk);
+      });
+
+      upstreamSocket.on("end", () => {
+        console.log("[design-loop proxy] WebSocket upstream ended");
+        socket.end();
+      });
+      socket.on("end", () => {
+        console.log("[design-loop proxy] WebSocket client ended");
+        upstreamSocket.end();
+      });
+    });
 
     upstreamSocket.on("error", (err) => {
       console.error("[design-loop proxy] WebSocket upstream error:", err);
