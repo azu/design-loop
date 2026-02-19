@@ -32,13 +32,10 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
   const shell = process.env.SHELL ?? "/bin/zsh";
 
   // Build command with --append-system-prompt if provided
+  const tmpDir = join(cwd, ".design-loop");
+  const tmpPath = join(tmpDir, "system-prompt.txt");
   let fullCommand = command;
   if (systemPrompt && command === "claude") {
-    // Write system prompt to a temp file to avoid shell escaping issues
-    const tmpDir = join(cwd, ".design-loop");
-    const tmpPath = join(tmpDir, "system-prompt.txt");
-    mkdirSync(tmpDir, { recursive: true });
-    writeFileSync(tmpPath, systemPrompt, "utf-8");
     fullCommand = `${command} --append-system-prompt "$(cat '${tmpPath}')"`;
   }
 
@@ -103,6 +100,12 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
     lastCols = cols;
     lastRows = rows;
     clearBuffer();
+
+    // Write system prompt file before each spawn (may have been cleaned up)
+    if (systemPrompt && command === "claude") {
+      mkdirSync(tmpDir, { recursive: true });
+      writeFileSync(tmpPath, systemPrompt, "utf-8");
+    }
 
     logger.info(`[design-loop pty] Spawning with ${cols}x${rows}`);
 

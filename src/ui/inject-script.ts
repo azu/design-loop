@@ -7,7 +7,8 @@
 
   function setStyle(el: HTMLElement, styles: Partial<CSSStyleDeclaration>): void {
     for (const [key, value] of Object.entries(styles)) {
-      (el.style as Record<string, unknown>)[key] = value;
+      const kebab = key.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
+      el.style.setProperty(kebab, typeof value === "string" ? value : "");
     }
   }
 
@@ -227,7 +228,7 @@
     );
     if (!fiberKey) return null;
 
-    let fiber = (el as Record<string, unknown>)[fiberKey] as FiberNode | null;
+    let fiber: FiberNode | null = Reflect.get(el, fiberKey) ?? null;
 
     // Walk up from native element to component fiber
     while (fiber && (!fiber.type || typeof fiber.type === "string")) {

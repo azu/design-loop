@@ -69,7 +69,7 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
   let devServerProcess: ChildProcess | undefined;
   let proxyServer: ReturnType<typeof import("node:http").createServer> | undefined;
   let ptyResult: PtyServerResult | undefined;
-  let uiServer: Server | undefined;
+  let uiServer: Server<unknown> | undefined;
 
   const cleanup = () => {
     console.log("\n[design-loop] Shutting down...");
@@ -149,7 +149,7 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
   logger.info(`[design-loop] UI: ${uiUrl}`);
 
   // Open browser
-  if (!options.noOpen) {
+  if (!options?.noOpen) {
     logger.info(`[design-loop] Opening browser...`);
     await open(uiUrl);
   }
