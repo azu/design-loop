@@ -88,13 +88,9 @@ export async function startProxyServer(
         ) {
           return;
         }
-        // Don't forward content-length for HTML (we modify it)
-        if (
-          lower === "content-length" &&
-          upstreamRes.headers.get("content-type")?.includes("text/html")
-        ) {
-          return;
-        }
+        // Don't forward content-length: Bun's fetch() auto-decompresses
+        // responses, so the original Content-Length (compressed size) is wrong
+        if (lower === "content-length") return;
         // Don't forward content-encoding since we stripped Accept-Encoding
         if (lower === "content-encoding") return;
         // Rewrite Location header to keep traffic through the proxy
