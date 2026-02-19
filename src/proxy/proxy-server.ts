@@ -34,99 +34,93 @@ export async function startProxyServer(
     }
 
     try {
-      const targetUrl = new URL(req.url ?? "/", upstream);
+      const bodyData =
+        req.method !== "GET" && req.method !== "HEAD"
+          ? await readRequestBody(req)
+          : undefined;
 
       // Build headers, stripping Accept-Encoding for uncompressed response
-      const forwardHeaders = new Headers();
+      const fwdHeaders: Record<string, string> = {};
       for (const [key, value] of Object.entries(req.headers)) {
         const lower = key.toLowerCase();
         if (lower === "accept-encoding") continue;
         if (lower === "host") {
-          forwardHeaders.set(key, upstreamUrl.host);
+          fwdHeaders[key] = upstreamUrl.host;
           continue;
         }
         // Rewrite referer/origin to upstream so the app doesn't reject requests
         if (lower === "referer" || lower === "origin") {
           if (value !== undefined) {
             const rewritten = String(value).replace(proxyOrigin, upstream.replace(/\/$/, ""));
-            forwardHeaders.set(key, rewritten);
+            fwdHeaders[key] = rewritten;
           }
           continue;
         }
         if (value !== undefined) {
-          forwardHeaders.set(key, Array.isArray(value) ? value.join(", ") : value);
+          fwdHeaders[key] = Array.isArray(value) ? value.join(", ") : value;
         }
       }
 
-      const bodyData =
-        req.method !== "GET" && req.method !== "HEAD"
-          ? await readRequestBody(req)
-          : undefined;
+      const upstreamReq = http.request(
+        {
+          hostname: upstreamUrl.hostname,
+          port: upstreamUrl.port || (upstreamUrl.protocol === "https:" ? 443 : 80),
+          path: req.url ?? "/",
+          method: req.method,
+          headers: fwdHeaders,
+        },
+        (upstreamRes) => {
+          const statusCode = upstreamRes.statusCode ?? 502;
+          logger.debug(`[design-loop proxy] ${req.method} ${req.url} → ${statusCode} (${upstreamRes.headers["content-type"] ?? "no content-type"})`);
 
-      // Abort upstream fetch when client disconnects (e.g. SSE reconnect)
-      const abortController = new AbortController();
-      res.on("close", () => abortController.abort());
+          // Build response headers, removing iframe-blocking ones
+          const responseHeaders: Record<string, string> = {};
+          for (const [key, value] of Object.entries(upstreamRes.headers)) {
+            if (value === undefined) continue;
+            const lower = key.toLowerCase();
+            if (
+              lower === "x-frame-options" ||
+              lower === "content-security-policy" ||
+              lower === "content-security-policy-report-only"
+            ) {
+              continue;
+            }
+            if (lower === "content-length") continue;
+            if (lower === "content-encoding") continue;
+            if (lower === "transfer-encoding") continue;
+            // Rewrite Location header to keep traffic through the proxy
+            if (lower === "location") {
+              const loc = Array.isArray(value) ? value[0] : value;
+              responseHeaders[key] = rewriteLocationHeader(loc, upstreamUrl, proxyOrigin);
+              continue;
+            }
+            // Rewrite Set-Cookie domain to proxy
+            if (lower === "set-cookie") {
+              const cookie = Array.isArray(value) ? value.join(", ") : value;
+              responseHeaders[key] = cookie.replace(
+                new RegExp(`domain=${escapeRegExp(upstreamUrl.hostname)}`, "gi"),
+                `domain=127.0.0.1`,
+              );
+              continue;
+            }
+            responseHeaders[key] = Array.isArray(value) ? value.join(", ") : value;
+          }
 
-      const upstreamRes = await fetch(targetUrl.toString(), {
-        method: req.method,
-        headers: forwardHeaders,
-        body: bodyData ? new Uint8Array(bodyData) : undefined,
-        redirect: "manual",
-        signal: abortController.signal,
-      });
+          const contentType = upstreamRes.headers["content-type"] ?? "";
+          const isHtml = contentType.includes("text/html");
 
-      logger.debug(`[design-loop proxy] ${req.method} ${req.url} → ${upstreamRes.status} (${upstreamRes.headers.get("content-type") ?? "no content-type"})`);
+          if (isHtml) {
+            // Stream HTML through and append inject script at the end.
+            // Don't buffer — upstream may use SSR streaming (React 18/Next.js App Router).
+            delete responseHeaders["content-length"];
+            delete responseHeaders["Content-Length"];
+            res.writeHead(statusCode, responseHeaders);
 
-      // Build response headers, removing iframe-blocking ones
-      const responseHeaders: Record<string, string> = {};
-      upstreamRes.headers.forEach((value, key) => {
-        const lower = key.toLowerCase();
-        if (
-          lower === "x-frame-options" ||
-          lower === "content-security-policy" ||
-          lower === "content-security-policy-report-only"
-        ) {
-          return;
-        }
-        // Don't forward content-length: Bun's fetch() auto-decompresses
-        // responses, so the original Content-Length (compressed size) is wrong
-        if (lower === "content-length") return;
-        // Don't forward content-encoding since we stripped Accept-Encoding
-        if (lower === "content-encoding") return;
-        // Don't forward transfer-encoding: the proxy re-streams the decoded body,
-        // so the original chunked framing doesn't apply
-        if (lower === "transfer-encoding") return;
-        // Rewrite Location header to keep traffic through the proxy
-        if (lower === "location") {
-          responseHeaders[key] = rewriteLocationHeader(value, upstreamUrl, proxyOrigin);
-          return;
-        }
-        // Rewrite Set-Cookie domain to proxy
-        if (lower === "set-cookie") {
-          responseHeaders[key] = value.replace(
-            new RegExp(`domain=${escapeRegExp(upstreamUrl.hostname)}`, "gi"),
-            `domain=127.0.0.1`,
-          );
-          return;
-        }
-        responseHeaders[key] = value;
-      });
-
-      const contentType = upstreamRes.headers.get("content-type") ?? "";
-      const isHtml = contentType.includes("text/html");
-
-      if (isHtml) {
-        // Stream HTML through and append inject script at the end.
-        // Don't buffer with text() — upstream may use SSR streaming (React 18/Next.js App Router).
-        delete responseHeaders["content-length"];
-        delete responseHeaders["Content-Length"];
-        res.writeHead(upstreamRes.status, responseHeaders);
-
-        // Inject WebSocket redirect BEFORE any upstream content.
-        // Must run before Next.js/webpack scripts create HMR connections,
-        // otherwise the patch comes too late.
-        const upstreamOrigin = `${upstreamUrl.protocol}//${upstreamUrl.host}`;
-        res.write(`<script>
+            // Inject WebSocket redirect BEFORE any upstream content.
+            // Must run before Next.js/webpack scripts create HMR connections,
+            // otherwise the patch comes too late.
+            const upstreamOrigin = `${upstreamUrl.protocol}//${upstreamUrl.host}`;
+            res.write(`<script>
 (function(){
   var uo="${upstreamOrigin}",ph=location.host,uh=new URL(uo).host,O=window.WebSocket;
   window.__DESIGN_LOOP_UPSTREAM__=uo;
@@ -136,44 +130,53 @@ export async function startProxyServer(
 })();
 </script>`);
 
-        if (upstreamRes.body) {
-          const reader = upstreamRes.body.getReader();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(value);
-            }
-          } finally {
-            reader.releaseLock();
+            upstreamRes.on("data", (chunk: Buffer) => {
+              res.write(chunk);
+            });
+            upstreamRes.on("end", () => {
+              // Append element selection script after all content
+              res.write('<script src="/design-loop-inject.js"></script>');
+              res.end();
+            });
+          } else {
+            // Non-HTML: stream through unchanged (SSE, CSS, JS, etc.)
+            res.writeHead(statusCode, responseHeaders);
+            // Flush headers immediately for long-lived streams (SSE, etc.)
+            res.flushHeaders();
+
+            upstreamRes.on("data", (chunk: Buffer) => {
+              res.write(chunk);
+            });
+            upstreamRes.on("end", () => {
+              res.end();
+            });
           }
+        },
+      );
+
+      // Abort upstream request when client disconnects (e.g. SSE reconnect)
+      res.on("close", () => {
+        upstreamReq.destroy();
+      });
+
+      upstreamReq.on("error", (err) => {
+        if ((err as NodeJS.ErrnoException).code === "ECONNRESET") return;
+        if ((err as NodeJS.ErrnoException).code === "ECONNREFUSED") {
+          logger.debug(`[design-loop proxy] ${req.method} ${req.url} → upstream refused`);
+        } else {
+          logger.debug(`[design-loop proxy] ${req.method} ${req.url} → Error:`, err);
         }
-        // Append element selection script after all content
-        res.write('<script src="/design-loop-inject.js"></script>');
-        res.end();
-      } else {
-        // Non-HTML: stream through unchanged
-        res.writeHead(upstreamRes.status, responseHeaders);
-        // Flush headers immediately for long-lived streams (SSE, etc.)
-        res.flushHeaders();
-        if (upstreamRes.body) {
-          const reader = upstreamRes.body.getReader();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(value);
-            }
-          } finally {
-            reader.releaseLock();
-          }
+        if (!res.headersSent) {
+          res.writeHead(502);
+          res.end("Proxy error");
         }
-        res.end();
+      });
+
+      if (bodyData) {
+        upstreamReq.write(bodyData);
       }
+      upstreamReq.end();
     } catch (err) {
-      // Ignore abort errors (client disconnected, e.g. SSE reconnect)
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      if (err instanceof Error && err.name === "AbortError") return;
       logger.debug(`[design-loop proxy] ${req.method} ${req.url} → Error:`, err);
       if (!res.headersSent) {
         res.writeHead(502);
