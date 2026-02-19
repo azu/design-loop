@@ -154,6 +154,7 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
     connections.add(ws);
 
     let hasResized = false;
+    let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 
     // If process already exited, notify new connection
     if (terminal && !processRunning) {
@@ -174,18 +175,26 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
 
             if (!terminal) {
               spawnProcess(cols, rows);
+              hasResized = true;
             } else {
-              terminal.resize(cols, rows);
-
-              // Replay buffer on first resize of a reconnection
+              // Replay buffer on first resize of a reconnection (immediately)
               if (!hasResized) {
                 const buf = getBufferedOutput();
                 if (buf.length > 0) {
                   ws.send(buf);
                 }
               }
+              hasResized = true;
+
+              // Debounce resize to prevent rapid SIGWINCH cascades
+              if (resizeTimer) clearTimeout(resizeTimer);
+              resizeTimer = setTimeout(() => {
+                resizeTimer = null;
+                if (terminal) {
+                  terminal.resize(cols, rows);
+                }
+              }, 100);
             }
-            hasResized = true;
           } else if (ctrl.type === "restart") {
             // Restart the process
             spawnProcess(lastCols, lastRows);

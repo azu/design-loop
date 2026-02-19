@@ -112,7 +112,7 @@ export async function initTerminal(ptyWsUrl: string): Promise<void> {
       isFitting = true;
       fitAddon.fit();
       isFitting = false;
-    }, 150);
+    }, 300);
   });
   resizeObserver.observe(container);
 

@@ -53,8 +53,6 @@ export function initSplitPane(): void {
     document.body.style.userSelect = "none";
   });
 
-  let resizeTimer: ReturnType<typeof setTimeout> | null = null;
-
   document.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
 
@@ -67,14 +65,6 @@ export function initSplitPane(): void {
 
     leftPane.style.flex = `0 0 ${leftWidth}px`;
     rightPane.style.flex = `0 0 ${rightWidth}px`;
-
-    // Throttled resize event during drag
-    if (!resizeTimer) {
-      resizeTimer = setTimeout(() => {
-        resizeTimer = null;
-        window.dispatchEvent(new Event("resize"));
-      }, 100);
-    }
   });
 
   document.addEventListener("mouseup", stopDrag);
