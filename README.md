@@ -29,7 +29,6 @@ design-loop --url http://localhost:3000
 --source=<path>    Path to source directory (default: ".")
 --app-dir=<path>   App directory relative to source (for monorepo)
 --port, -p <port>  UI server port (default: 5757)
---no-branch        Skip creating a git work branch
 --no-open          Skip opening browser automatically
 --log-level <lvl>  Log level: debug, info, warn, error (default: info)
 ```

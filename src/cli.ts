@@ -12,12 +12,9 @@ import { startProxyServer } from "./proxy/proxy-server.ts";
 import { startPtyServer, type PtyServerResult } from "./pty/pty-server.ts";
 import { startUiServer } from "./ui-server.ts";
 import { startDevServer } from "./dev-server.ts";
-import { createWorkBranch, getCurrentBranch } from "./git.ts";
-
 const execFileAsync = promisify(execFile);
 
 export type StartOptions = {
-  noBranch?: boolean;
   noOpen?: boolean;
   port?: number;
 };
@@ -38,18 +35,6 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
       "[design-loop] 'claude' command not found. Install Claude Code CLI first.",
     );
     process.exit(1);
-  }
-
-  // Git: record current branch and create work branch
-  let baseBranch: string | undefined;
-  if (!options?.noBranch) {
-    try {
-      baseBranch = await getCurrentBranch(sourceDir);
-      const workBranch = await createWorkBranch(sourceDir);
-      logger.info(`[design-loop] Created work branch: ${workBranch} (base: ${baseBranch})`);
-    } catch {
-      console.log("[design-loop] Git branch creation skipped (not a git repo or no commits)");
-    }
   }
 
   // Find ports (use defaults, fall back to random if occupied)
