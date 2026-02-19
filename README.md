@@ -4,7 +4,7 @@ A browser-based frontend for [Claude Code](https://docs.anthropic.com/en/docs/cl
 
 Preview your site and Claude Code side by side in a single browser window — no terminal or editor needed. Select elements, describe changes in natural language, and Claude Code modifies the source code directly. Since it runs Claude Code under the hood, anything Claude Code can do is supported.
 
-<video src="./path/to/video.mp4" controls></video>
+<video src="https://github.com/user-attachments/assets/02cf182e-9d43-488f-ac57-787dbb228d9e" controls></video>
 
 ## Features
 
