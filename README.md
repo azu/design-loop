@@ -65,6 +65,12 @@ Place `.design-loop.json` in the project root to omit CLI options.
 design-loop
 ```
 
+## Update
+
+```bash
+design-loop update
+```
+
 ## Options
 
 ```
