@@ -1,4 +1,3 @@
-// @ts-expect-error ghostty-web types may not be available
 import { init, Terminal, FitAddon } from "ghostty-web";
 import { registerPtyWrite } from "./pty-write.ts";
 

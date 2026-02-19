@@ -82,7 +82,7 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
       devServerProcess = await startDevServer({
         command: config.devServer.command,
         cwd: sourceDir,
-        readyPattern: config.devServer.readyPattern,
+        waitOnUrl: config.devServer.url,
       });
       console.log("[design-loop] Dev server ready");
     } catch (err) {

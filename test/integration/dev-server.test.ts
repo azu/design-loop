@@ -12,21 +12,13 @@ afterEach(() => {
 });
 
 describe("dev-server", () => {
-  test("resolves when command outputs to stdout", async () => {
+  test("resolves when waitOnUrl becomes reachable", async () => {
+    // Start a simple HTTP server, then wait for it
     const child = await startDevServer({
-      command: "echo 'server started'",
+      command:
+        "bun -e \"Bun.serve({ port: 19876, fetch: () => new Response('ok') })\"",
       cwd: process.cwd(),
-    });
-    processes.push(child);
-
-    expect(child.pid).toBeGreaterThan(0);
-  });
-
-  test("resolves when readyPattern is matched", async () => {
-    const child = await startDevServer({
-      command: "echo 'Loading...' && sleep 0.1 && echo 'Ready on port 3000'",
-      cwd: process.cwd(),
-      readyPattern: "Ready on port",
+      waitOnUrl: "http://127.0.0.1:19876",
     });
     processes.push(child);
 
@@ -38,6 +30,7 @@ describe("dev-server", () => {
       startDevServer({
         command: "exit 1",
         cwd: process.cwd(),
+        waitOnUrl: "http://127.0.0.1:19877",
       }),
     ).rejects.toThrow("exited with code");
   });
@@ -47,6 +40,7 @@ describe("dev-server", () => {
       startDevServer({
         command: "nonexistent-command-xyz-123",
         cwd: process.cwd(),
+        waitOnUrl: "http://127.0.0.1:19878",
       }),
     ).rejects.toThrow();
   });

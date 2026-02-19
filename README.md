@@ -49,8 +49,7 @@ Place `.design-loop.json` in the project root to omit CLI options.
 {
   "devServer": {
     "url": "http://localhost:3000",
-    "command": "npm run dev",
-    "readyPattern": "ready on"
+    "command": "npm run dev"
   }
 }
 ```

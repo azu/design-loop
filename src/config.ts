@@ -5,7 +5,6 @@ import { parseArgs } from "node:util";
 export type DevServerConfig = {
   command?: string;
   url: string;
-  readyPattern?: string;
 };
 
 export type ElementSelectionConfig = {
@@ -88,7 +87,6 @@ export async function resolveConfig(cliArgs: CliArgs): Promise<DesignLoopConfig>
     devServer: {
       url,
       command: cliArgs.command ?? configFile?.devServer?.command,
-      readyPattern: configFile?.devServer?.readyPattern,
     },
     context: configFile?.context,
     elementSelection: configFile?.elementSelection

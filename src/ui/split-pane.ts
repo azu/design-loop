@@ -30,13 +30,13 @@ export function initSplitPane(): void {
     if (!isDragging) return;
     isDragging = false;
     dragOverlay.style.display = "none";
-    divider.classList.remove("dragging");
+    divider?.classList.remove("dragging");
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
 
     // Save ratio
     const appWidth = document.getElementById("app")?.offsetWidth ?? window.innerWidth;
-    const leftWidth = leftPane.offsetWidth;
+    const leftWidth = leftPane?.offsetWidth ?? 0;
     const ratio = leftWidth / appWidth;
     localStorage.setItem(STORAGE_KEY, ratio.toString());
 
