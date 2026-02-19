@@ -17,6 +17,16 @@
 - `!`（non-null assertion）は使わない
 - `any` を避ける
 
+## リリース
+
+バージョンアップにはnpm scriptsを使う。手動で`package.json`のversionを変更しない。
+
+- `ni run release:patch` — パッチリリース（バグ修正）
+- `ni run release:minor` — マイナーリリース（新機能）
+- `ni run release:major` — メジャーリリース（破壊的変更）
+
+これらは`npm version`でバージョンを上げ、gitタグを作成し、`git push --follow-tags`まで行う。
+
 ## サーバのセキュリティ
 
 - 全サーバは `127.0.0.1` にバインド
