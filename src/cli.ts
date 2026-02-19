@@ -102,14 +102,34 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
 
   // Build system prompt for Claude
   const systemPromptParts: string[] = [];
-  systemPromptParts.push(`This is a design-loop session. A designer is viewing the app in a browser and sending you instructions to adjust the UI.`);
+  systemPromptParts.push(
+    `This is a design-loop session. A designer is viewing the app in a browser and sending you instructions to adjust the UI.`,
+  );
+  systemPromptParts.push(
+    `Response rules:
+- Reply in the same language the designer uses
+- Respond concisely. Describe changes in visual terms, not code internals
+- Only change what the designer asked for. Do not refactor or modify unrelated code
+- When making style changes, prefer existing design tokens (Tailwind, Panda CSS, CSS variables, etc.) over hardcoded values`,
+  );
+  systemPromptParts.push(
+    `Scope restrictions:
+- Only modify files related to the designer's UI request
+- Do NOT run git commands, rename/move/delete files, or modify config files`,
+  );
   systemPromptParts.push(`Source directory: ${sourceDir}`);
   if (config.appDir) {
     systemPromptParts.push(`App directory: ${config.appDir} (relative to source)`);
   }
   systemPromptParts.push(`Dev server URL: ${config.devServer.url}`);
+  if (config.context?.files && config.context.files.length > 0) {
+    const fileList = config.context.files.map((f) => `- ${f}`).join("\n");
+    systemPromptParts.push(
+      `\nDesign token files (read before making style changes):\n${fileList}`,
+    );
+  }
   if (config.context?.instructions) {
-    systemPromptParts.push(`\nDesigner instructions:\n${config.context.instructions}`);
+    systemPromptParts.push(`\nProject instructions:\n${config.context.instructions}`);
   }
   const systemPrompt = systemPromptParts.join("\n");
 
