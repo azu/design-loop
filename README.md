@@ -2,6 +2,10 @@
 
 Local website design adjustment tool. Interactively modify UI in collaboration with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
+## Prerequisites
+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
+
 ## Install
 
 Download binary from [GitHub Releases](https://github.com/azu/design-loop/releases/latest):
@@ -17,10 +21,6 @@ mkdir -p ~/.local/bin
 curl -fsSL "https://github.com/azu/design-loop/releases/latest/download/design-loop-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x64/')" -o ~/.local/bin/design-loop
 chmod +x ~/.local/bin/design-loop
 ```
-
-## Prerequisites
-
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 
 ## Usage
 
