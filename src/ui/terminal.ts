@@ -12,6 +12,7 @@ export async function initTerminal(ptyWsUrl: string): Promise<void> {
 
   const terminal = new Terminal({
     fontSize: 14,
+    fontFamily: "Menlo, 'DejaVu Sans Mono', 'Courier New', monospace",
     theme: {
       background: "#0a0a0c",
       foreground: "#ececef",
