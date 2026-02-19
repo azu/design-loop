@@ -1,6 +1,7 @@
 import { initTerminal } from "./terminal.ts";
 import { initSplitPane } from "./split-pane.ts";
 import { initElementSelection } from "./element-selection.ts";
+import { initDesignMode } from "./design-mode.ts";
 import { initPip } from "./pip.ts";
 import { initFileUpload } from "./file-upload.ts";
 
@@ -24,6 +25,7 @@ async function main(): Promise<void> {
   // Initialize components
   initSplitPane();
   initElementSelection(config.proxyUrl, config.appDir);
+  initDesignMode(config.proxyUrl);
   initPip();
   initFileUpload(config.uiBaseUrl);
 

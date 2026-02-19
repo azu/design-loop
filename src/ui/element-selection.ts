@@ -1,4 +1,5 @@
 import { writeToTerminal } from "./pty-write.ts";
+import { deactivateDesignMode, setDesignModePageUrl } from "./design-mode.ts";
 
 export type ElementInfo = {
   selector: string;
@@ -31,6 +32,11 @@ export function initElementSelection(proxyOrigin: string, appDir: string | null)
     selectionMode = !selectionMode;
     toggle.classList.toggle("active", selectionMode);
     toggle.textContent = selectionMode ? "Select Mode ON" : "Select Element";
+
+    // Turn off design mode when selection mode is activated
+    if (selectionMode) {
+      deactivateDesignMode();
+    }
 
     // Notify iframe
     preview.contentWindow?.postMessage(
@@ -94,6 +100,7 @@ export function initElementSelection(proxyOrigin: string, appDir: string | null)
 
     if (event.data?.type === "page-url") {
       currentPageUrl = event.data.pathname ?? "";
+      setDesignModePageUrl(currentPageUrl);
       if (pageUrlEl) {
         pageUrlEl.textContent = currentPageUrl || "";
         pageUrlEl.style.display = currentPageUrl ? "inline-block" : "none";

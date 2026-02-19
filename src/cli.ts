@@ -117,6 +117,18 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
 - Only modify files related to the designer's UI request
 - Do NOT run git commands, rename/move/delete files, or modify config files`,
   );
+  systemPromptParts.push(
+    `Design Mode changes:
+When you receive "[Design Mode Changes]", the designer has visually edited the page. Follow these steps:
+1. Read the source file first. Understand the component structure before making changes
+2. For text edits: find the exact text in the source and replace it
+3. For element reorder: the change shows the element's original position and desired position
+   - In React/JSX: move the JSX element within the SAME component. Do NOT move elements across component boundaries
+   - Check that the moved element stays within its parent component's render
+   - If the move would cross component boundaries, explain this to the designer and suggest alternatives (e.g., reordering props, changing the parent component's children order)
+4. After applying changes, verify the code compiles correctly
+5. The CSS selector is a hint for locating the element. Always use the React component name and source file path when available`,
+  );
   systemPromptParts.push(`Source directory: ${sourceDir}`);
   if (config.appDir) {
     systemPromptParts.push(`App directory: ${config.appDir} (relative to source)`);
