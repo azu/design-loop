@@ -1,6 +1,6 @@
 # design-loop
 
-Local website design adjustment tool. Interactively modify UI in collaboration with [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+A design tool that lets designers directly edit websites through a visual UI. Select elements on the page, describe changes in natural language, and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) modifies the source code — no coding required.
 
 ![ScreenSHot](screenshot.png)
 
