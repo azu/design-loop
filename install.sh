@@ -17,10 +17,20 @@ case "$ARCH" in
     ;;
 esac
 
-URL="https://github.com/${REPO}/releases/latest/download/${BIN_NAME}-${OS}-${ARCH}"
+VERSION="${1:-}"
+if [ -n "$VERSION" ]; then
+  # Ensure version starts with "v"
+  case "$VERSION" in
+    v*) ;;
+    *)  VERSION="v${VERSION}" ;;
+  esac
+  URL="https://github.com/${REPO}/releases/download/${VERSION}/${BIN_NAME}-${OS}-${ARCH}"
+else
+  URL="https://github.com/${REPO}/releases/latest/download/${BIN_NAME}-${OS}-${ARCH}"
+fi
 
 mkdir -p "$INSTALL_DIR"
-echo "Downloading ${BIN_NAME}..."
+echo "Downloading ${BIN_NAME}${VERSION:+ ${VERSION}}..."
 curl -fsSL "$URL" -o "${INSTALL_DIR}/${BIN_NAME}"
 chmod +x "${INSTALL_DIR}/${BIN_NAME}"
 
