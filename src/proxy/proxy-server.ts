@@ -93,6 +93,9 @@ export async function startProxyServer(
         if (lower === "content-length") return;
         // Don't forward content-encoding since we stripped Accept-Encoding
         if (lower === "content-encoding") return;
+        // Don't forward transfer-encoding: the proxy re-streams the decoded body,
+        // so the original chunked framing doesn't apply
+        if (lower === "transfer-encoding") return;
         // Rewrite Location header to keep traffic through the proxy
         if (lower === "location") {
           responseHeaders[key] = rewriteLocationHeader(value, upstreamUrl, proxyOrigin);
