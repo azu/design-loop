@@ -320,6 +320,36 @@
       font-weight: 400;
     }
 
+    .prompt-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .prompt-actions-left {
+      display: flex;
+      gap: 4px;
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: color var(--transition), background var(--transition);
+    }
+
+    .icon-btn:hover {
+      color: var(--accent);
+      background: rgba(232, 145, 58, 0.1);
+    }
+
     /* ── Selected element badges ── */
     #selected-element {
       display: flex;
@@ -467,15 +497,25 @@
         </div>
       </div>
       <div id="terminal-container">
-        <div id="drop-overlay">Drop image here</div>
+        <div id="drop-overlay">Drop file here</div>
       </div>
       <div id="prompt-bar">
         <div id="prompt-context">
           <span id="page-url" class="tag" style="display:none;"></span>
           <div id="selected-element" style="display:none;"></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;">
-          <textarea id="prompt-input" rows="4" placeholder="指示を入力... (Cmd+Enter で送信)"></textarea>
+        <textarea id="prompt-input" rows="4" placeholder="指示を入力... (Cmd+Enter で送信)"></textarea>
+        <div class="prompt-actions">
+          <div class="prompt-actions-left">
+            <input type="file" id="file-input" multiple style="display:none;">
+            <button id="upload-btn" class="icon-btn" title="Upload file">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 10v2.667A1.334 1.334 0 0 1 12.667 14H3.333A1.334 1.334 0 0 1 2 12.667V10"/>
+                <polyline points="5 5.333 8 2 11 5.333"/>
+                <line x1="8" y1="2" x2="8" y2="10.667"/>
+              </svg>
+            </button>
+          </div>
           <button id="prompt-send" class="toolbar-btn">Send</button>
         </div>
       </div>

@@ -53,7 +53,7 @@ describeOrSkip("pty-server", () => {
     const result = startPtyServer({
       port,
       cwd: process.cwd(),
-      command: "/bin/echo",
+      command: "/bin/sh",
     });
     ptys.push(result);
 
@@ -62,12 +62,29 @@ describeOrSkip("pty-server", () => {
 
     const ws = await connectWebSocket(port);
 
-    // echo with no args just outputs a newline, but we should receive something
-    const data = await waitForMessage(ws);
-    expect(data.length).toBeGreaterThan(0);
+    // Send a command and wait for its output
+    ws.send("echo pty-spawn-test\n");
+
+    const output = await new Promise<string>((resolve, reject) => {
+      let buffer = "";
+      const handler = (data: WebSocket.Data) => {
+        buffer += data.toString();
+        if (buffer.includes("pty-spawn-test")) {
+          ws.off("message", handler);
+          resolve(buffer);
+        }
+      };
+      ws.on("message", handler);
+      setTimeout(() => {
+        ws.off("message", handler);
+        reject(new Error(`Timeout. Got: ${buffer.slice(-200)}`));
+      }, 5000);
+    });
+
+    expect(output).toContain("pty-spawn-test");
 
     ws.close();
-  });
+  }, 10000);
 
   test("handles resize control messages", async () => {
     const port = await findFreePort();

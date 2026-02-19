@@ -191,7 +191,9 @@ export async function startProxyServer(
         logger.debug(`[design-loop proxy] WebSocket connected to upstream ${upstreamHost}:${upstreamPort}`);
 
         // Disable Nagle for real-time forwarding
-        socket.setNoDelay(true);
+        if ("setNoDelay" in socket && typeof socket.setNoDelay === "function") {
+          socket.setNoDelay(true);
+        }
         upstreamSocket.setNoDelay(true);
 
         // Rewrite Host header to upstream

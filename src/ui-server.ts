@@ -25,13 +25,13 @@ export async function startUiServer(
       "/api/config": {
         GET: () => Response.json({ proxyUrl, ptyWsUrl, uiBaseUrl, appDir: appDir ?? null }),
       },
-      "/api/upload-image": {
+      "/api/upload-file": {
         POST: async (req) => {
           if (allowedOrigin && req.headers.get("origin") !== allowedOrigin) {
             return new Response("Forbidden", { status: 403 });
           }
           try {
-            return await handleImageUpload(req, sourceDir);
+            return await handleFileUpload(req, sourceDir);
           } catch (err) {
             console.error("[design-loop ui] Upload error:", err);
             return new Response("Upload failed", { status: 500 });
@@ -55,32 +55,37 @@ export async function startUiServer(
   return server;
 }
 
-async function handleImageUpload(
+async function handleFileUpload(
   req: Request,
   sourceDir: string,
 ): Promise<Response> {
   const formData = await req.formData();
-  const imageFile = formData.get("image");
 
-  if (!imageFile || !(imageFile instanceof File)) {
-    return new Response("No image found", { status: 400 });
+  const files = formData.getAll("file");
+  const validFiles = files.filter((f): f is File => f instanceof File);
+  if (validFiles.length === 0) {
+    return new Response("No files found", { status: 400 });
   }
-
-  // Size limit: 20MB
-  if (imageFile.size > 20 * 1024 * 1024) {
-    return new Response("File too large", { status: 413 });
-  }
-
-  // Sanitize filename
-  const safeName = (imageFile.name ?? "upload").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const timestamp = Date.now();
-  const filename = `${timestamp}_${safeName}`;
 
   const tmpDir = join(sourceDir, ".design-loop", "tmp");
   await mkdir(tmpDir, { recursive: true });
-  const filePath = join(tmpDir, filename);
-  const arrayBuffer = await imageFile.arrayBuffer();
-  await writeFile(filePath, Buffer.from(arrayBuffer));
 
-  return Response.json({ path: filePath });
+  const timestamp = Date.now();
+  const paths: string[] = [];
+
+  for (const file of validFiles) {
+    // Size limit: 20MB per file
+    if (file.size > 20 * 1024 * 1024) {
+      return new Response(`File too large: ${file.name}`, { status: 413 });
+    }
+
+    const safeName = (file.name ?? "upload").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const filename = `${timestamp}_${safeName}`;
+    const filePath = join(tmpDir, filename);
+    const arrayBuffer = await file.arrayBuffer();
+    await writeFile(filePath, Buffer.from(arrayBuffer));
+    paths.push(filePath);
+  }
+
+  return Response.json({ paths });
 }

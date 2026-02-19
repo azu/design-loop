@@ -2,7 +2,7 @@ import { initTerminal } from "./terminal.ts";
 import { initSplitPane } from "./split-pane.ts";
 import { initElementSelection } from "./element-selection.ts";
 import { initPip } from "./pip.ts";
-import { initImageUpload } from "./image-upload.ts";
+import { initFileUpload } from "./file-upload.ts";
 
 type DesignLoopConfig = {
   proxyUrl: string;
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   initSplitPane();
   initElementSelection(config.proxyUrl, config.appDir);
   initPip();
-  initImageUpload(config.uiBaseUrl);
+  initFileUpload(config.uiBaseUrl);
 
   try {
     await initTerminal(config.ptyWsUrl);
