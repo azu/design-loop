@@ -1,8 +1,10 @@
 # design-loop
 
-A design tool that lets designers directly edit websites through a visual UI. Select elements on the page, describe changes in natural language, and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) modifies the source code — no coding required.
+A design tool that lets designers directly edit websites through a visual UI.
 
-![ScreenSHot](./screenshot.png)
+Select elements on the page, describe changes in natural language, and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) modifies the source code — no coding required.
+
+![ScreenShot](./screenshot.png)
 
 ## Prerequisites
 
@@ -23,6 +25,15 @@ mkdir -p ~/.local/bin
 curl -fsSL "https://github.com/azu/design-loop/releases/latest/download/design-loop-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x64/')" -o ~/.local/bin/design-loop
 chmod +x ~/.local/bin/design-loop
 ```
+
+## Update
+
+Update to the latest version with:
+
+```bash
+design-loop update
+```
+
 
 ## Usage
 
@@ -90,12 +101,6 @@ Additional config options (experimental — may break in future releases):
 - `context.instructions` - Project-specific instructions for Claude
 - `elementSelection.framework` - UI framework name (default: `"react"`)
 - `elementSelection.ignoreSelectors` - CSS selectors to exclude from element selection
-
-## Update
-
-```bash
-design-loop update
-```
 
 ## Options
 
