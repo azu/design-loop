@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "bun run build:ui && bun run bin/design-loop.ts",
-    "dev": "bun run build:ui && (bun run dev:ui & bun run bin/design-loop.ts)",
+    "dev": "bun run build:ui && (bun run dev:ui & bun run dev:test-app & bun run bin/design-loop.ts --url http://localhost:3456 --source fixtures/test-app)",
     "build:server": "tsc -p tsconfig.build.json",
     "build:ui": "bun build src/ui/index.ts --outdir dist/ui --target browser --format esm --splitting && bun build src/ui/inject-script.ts --outfile dist/ui/inject-script.js --target browser --format iife",
     "build": "bun run build:server && bun run build:ui",
