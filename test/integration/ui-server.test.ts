@@ -1,15 +1,15 @@
 import { describe, expect, test, afterEach } from "bun:test";
-import http from "node:http";
+import type { Server } from "bun";
 import { startUiServer } from "../../src/ui-server.ts";
 import { findFreePort } from "../../src/port.ts";
-import { writeFile, mkdir, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 
-const servers: http.Server[] = [];
+const servers: Server[] = [];
 const tmpDirs: string[] = [];
 
 afterEach(async () => {
-  for (const s of servers) s.close();
+  for (const s of servers) s.stop();
   servers.length = 0;
   for (const d of tmpDirs) {
     await rm(d, { recursive: true, force: true }).catch(() => {});
@@ -35,7 +35,7 @@ async function setupUiServer(options?: { allowedOrigin?: string }) {
 }
 
 describe("ui-server", () => {
-  test("serves index.html with config injection", async () => {
+  test("serves index.html", async () => {
     const { port } = await setupUiServer();
 
     const res = await fetch(`http://127.0.0.1:${port}/`);
@@ -43,29 +43,37 @@ describe("ui-server", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
-    expect(body).toContain("__DESIGN_LOOP_CONFIG__");
-    expect(body).toContain('"proxyUrl"');
-    expect(body).toContain('"ptyWsUrl"');
+    expect(body).toContain("design-loop");
   });
 
-  test("config script is injected before </head>", async () => {
+  test("/api/config returns config JSON", async () => {
     const { port } = await setupUiServer();
 
-    const res = await fetch(`http://127.0.0.1:${port}/`);
-    const body = await res.text();
+    const res = await fetch(`http://127.0.0.1:${port}/api/config`);
+    const json = await res.json() as Record<string, unknown>;
 
-    const configPos = body.indexOf("__DESIGN_LOOP_CONFIG__");
-    const headClosePos = body.indexOf("</head>");
-    expect(configPos).toBeLessThan(headClosePos);
+    expect(res.status).toBe(200);
+    expect(json.proxyUrl).toBe("http://127.0.0.1:9999");
+    expect(json.ptyWsUrl).toBe("ws://127.0.0.1:9998");
+    expect(json.uiBaseUrl).toBe(`http://127.0.0.1:${port}`);
   });
 
-  test("serves static JS files from dist/ui", async () => {
+  test("serves bundled JS files", async () => {
     const { port } = await setupUiServer();
 
-    const res = await fetch(`http://127.0.0.1:${port}/index.js`);
-    // May be 200 or 404 depending on build state
-    // Just verify the server responds
-    expect(res.status).toBeLessThanOrEqual(404);
+    // Get the HTML to find the bundled chunk name
+    const htmlRes = await fetch(`http://127.0.0.1:${port}/`);
+    const html = await htmlRes.text();
+    const chunkMatch = html.match(/src="\.?\/?([^"]+\.js)"/);
+    if (!chunkMatch) {
+      // No chunk found in HTML, skip this assertion
+      return;
+    }
+
+    const chunkPath = chunkMatch[1];
+    const res = await fetch(`http://127.0.0.1:${port}/${chunkPath}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("javascript");
   });
 
   test("returns 404 for missing files", async () => {
@@ -92,22 +100,15 @@ describe("ui-server", () => {
       0x44, 0xae, 0x42, 0x60, 0x82,
     ]);
 
-    const boundary = "----TestBoundary123";
-    const body = Buffer.concat([
-      Buffer.from(`--${boundary}\r\n`),
-      Buffer.from(`Content-Disposition: form-data; name="image"; filename="test.png"\r\n`),
-      Buffer.from(`Content-Type: image/png\r\n\r\n`),
-      png,
-      Buffer.from(`\r\n--${boundary}--\r\n`),
-    ]);
+    const formData = new FormData();
+    formData.append("image", new File([png], "test.png", { type: "image/png" }));
 
     const res = await fetch(`http://127.0.0.1:${port}/api/upload-image`, {
       method: "POST",
       headers: {
-        "content-type": `multipart/form-data; boundary=${boundary}`,
         origin: `http://127.0.0.1:${port}`,
       },
-      body,
+      body: formData,
     });
 
     expect(res.status).toBe(200);
@@ -119,18 +120,15 @@ describe("ui-server", () => {
   test("image upload rejects wrong origin", async () => {
     const { port } = await setupUiServer();
 
-    const boundary = "----TestBoundary";
-    const body = Buffer.from(
-      `--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="test.png"\r\nContent-Type: image/png\r\n\r\nfakedata\r\n--${boundary}--\r\n`,
-    );
+    const formData = new FormData();
+    formData.append("image", new File([new Uint8Array(10)], "test.png", { type: "image/png" }));
 
     const res = await fetch(`http://127.0.0.1:${port}/api/upload-image`, {
       method: "POST",
       headers: {
-        "content-type": `multipart/form-data; boundary=${boundary}`,
         origin: "http://evil.example.com",
       },
-      body,
+      body: formData,
     });
 
     expect(res.status).toBe(403);

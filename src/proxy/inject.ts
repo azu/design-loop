@@ -1,25 +1,16 @@
-import { readFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
-let cachedScript: string | null = null;
+import injectScriptSource from "../ui/inject-script.ts" with { type: "file" };
 
 export async function getInjectScript(): Promise<string> {
-  if (cachedScript) return cachedScript;
+  const result = await Bun.build({
+    entrypoints: [injectScriptSource],
+    target: "browser",
+    format: "iife",
+    minify: true,
+  });
 
-  // In dev: read from dist/ui/inject-script.js
-  // The path is resolved relative to this file's location
-  const thisDir = dirname(fileURLToPath(import.meta.url));
-  const scriptPath = join(thisDir, "..", "..", "dist", "ui", "inject-script.js");
-
-  try {
-    cachedScript = await readFile(scriptPath, "utf-8");
-  } catch {
-    // Fallback: try relative to process.cwd()
-    cachedScript = await readFile(
-      join(process.cwd(), "dist", "ui", "inject-script.js"),
-      "utf-8",
-    );
+  if (!result.success) {
+    throw new Error(`Failed to build inject script: ${result.logs.join("\n")}`);
   }
-  return cachedScript;
+
+  return result.outputs[0].text();
 }

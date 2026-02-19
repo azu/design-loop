@@ -18,7 +18,8 @@
     "fmt": "oxfmt .",
     "fmt:check": "oxfmt --check .",
     "typecheck": "@typescript/native-preview --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "build:compile": "bun run scripts/build-compile.ts"
   },
   "dependencies": {
     "ghostty-web": "0.4.0-next.7.g03ead6e",

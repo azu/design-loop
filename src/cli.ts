@@ -1,5 +1,5 @@
 import type { ChildProcess } from "node:child_process";
-import type http from "node:http";
+import type { Server } from "bun";
 import { resolve as resolvePath } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -67,15 +67,15 @@ export async function startDesignLoop(config?: DesignLoopConfig, options?: Start
 
   // Track resources for cleanup
   let devServerProcess: ChildProcess | undefined;
-  let proxyServer: http.Server | undefined;
+  let proxyServer: ReturnType<typeof import("node:http").createServer> | undefined;
   let ptyResult: PtyServerResult | undefined;
-  let uiServer: http.Server | undefined;
+  let uiServer: Server | undefined;
 
   const cleanup = () => {
     console.log("\n[design-loop] Shutting down...");
     ptyResult?.close();
     proxyServer?.close();
-    uiServer?.close();
+    uiServer?.stop();
     if (devServerProcess && !devServerProcess.killed) {
       devServerProcess.kill("SIGTERM");
     }

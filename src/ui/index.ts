@@ -4,24 +4,16 @@ import { initElementSelection } from "./element-selection.ts";
 import { initPip } from "./pip.ts";
 import { initImageUpload } from "./image-upload.ts";
 
-declare global {
-  type DesignLoopConfig = {
-    proxyUrl: string;
-    ptyWsUrl: string;
-    uiBaseUrl: string;
-    appDir: string | null;
-  };
-
-  // eslint-disable-next-line no-var
-  var __DESIGN_LOOP_CONFIG__: DesignLoopConfig | undefined;
-}
+type DesignLoopConfig = {
+  proxyUrl: string;
+  ptyWsUrl: string;
+  uiBaseUrl: string;
+  appDir: string | null;
+};
 
 async function main(): Promise<void> {
-  const config = window.__DESIGN_LOOP_CONFIG__;
-  if (!config) {
-    console.error("[design-loop] No config found");
-    return;
-  }
+  const res = await fetch("/api/config");
+  const config: DesignLoopConfig = await res.json();
 
   // Set preview iframe src
   const preview = document.getElementById("preview") as HTMLIFrameElement | null;

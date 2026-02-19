@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - target: bun-darwin-arm64
+            name: darwin-arm64
+          - target: bun-darwin-x64
+            name: darwin-x64
+          - target: bun-linux-x64
+            name: linux-x64
+          - target: bun-linux-arm64
+            name: linux-arm64
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@3d267786b128fe76c2f16a390aa2448b815359f3 # v2.1.2
+        with:
+          no-cache: true
+      - run: bun install --frozen-lockfile
+      - name: Compile binary
+        run: |
+          mkdir -p dist/bin
+          bun build --compile --minify \
+            --target=${{ matrix.target }} \
+            ./bin/design-loop.ts \
+            --outfile dist/bin/design-loop-${{ matrix.name }}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: design-loop-${{ matrix.name }}
+          path: dist/bin/design-loop-${{ matrix.name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create ${GITHUB_REF_NAME} artifacts/* --generate-notes --repo ${{ github.repository }}
