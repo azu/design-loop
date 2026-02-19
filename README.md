@@ -14,7 +14,7 @@ Preview your site and Claude Code side by side in a single browser window — no
 - **Single Window Workflow** — Preview and Claude Code terminal side by side in one browser tab. Replaces the three-app workflow (terminal + editor + browser).
 - **File Upload** — Drag-and-drop or paste images and files to include in design instructions.
 - **Dev Server Proxy** — Transparent proxy that preserves HMR/WebSocket connections and injects the selection overlay.
-- **Config File** — `.design-loop.json` for project-specific settings: dev server command, design tokens, and framework options.
+- **Config File** (Experimental) — `.design-loop.json` for project-specific settings: dev server command, design tokens, and framework options.
 
 ## Prerequisites
 
