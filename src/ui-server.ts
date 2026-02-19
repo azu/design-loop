@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { mkdir, writeFile } from "node:fs/promises";
 import index from "./ui/index.html";
 
@@ -67,7 +68,7 @@ async function handleFileUpload(
     return new Response("No files found", { status: 400 });
   }
 
-  const tmpDir = join(sourceDir, ".design-loop", "tmp");
+  const tmpDir = join(tmpdir(), "design-loop", "tmp");
   await mkdir(tmpDir, { recursive: true });
 
   const timestamp = Date.now();

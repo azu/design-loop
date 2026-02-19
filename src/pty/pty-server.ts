@@ -1,6 +1,7 @@
 import type http from "node:http";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { WebSocketServer, type WebSocket } from "ws";
 import { logger } from "../logger.ts";
 
@@ -32,7 +33,7 @@ export function startPtyServer(options: PtyServerOptions): PtyServerResult {
   const shell = process.env.SHELL ?? "/bin/zsh";
 
   // Build command with --append-system-prompt if provided
-  const tmpDir = join(cwd, ".design-loop");
+  const tmpDir = join(tmpdir(), "design-loop");
   const tmpPath = join(tmpDir, "system-prompt.txt");
   let fullCommand = command;
   if (systemPrompt && command === "claude") {

@@ -4,6 +4,7 @@ import { startUiServer } from "../../src/ui-server.ts";
 import { findFreePort } from "../../src/port.ts";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 const servers: Server[] = [];
 const tmpDirs: string[] = [];
@@ -85,7 +86,7 @@ describe("ui-server", () => {
 
   test("file upload returns file paths", async () => {
     const { port, sourceDir } = await setupUiServer();
-    tmpDirs.push(join(sourceDir, ".design-loop"));
+    tmpDirs.push(join(tmpdir(), "design-loop"));
 
     const formData = new FormData();
     formData.append("file", new File([new Uint8Array(10)], "test.png", { type: "image/png" }));
@@ -101,13 +102,13 @@ describe("ui-server", () => {
     expect(res.status).toBe(200);
     const json = await res.json() as { paths: string[] };
     expect(json.paths).toHaveLength(1);
-    expect(json.paths[0]).toContain(".design-loop/tmp/");
+    expect(json.paths[0]).toContain("design-loop/tmp/");
     expect(json.paths[0]).toContain("test.png");
   });
 
   test("file upload accepts non-image files", async () => {
     const { port, sourceDir } = await setupUiServer();
-    tmpDirs.push(join(sourceDir, ".design-loop"));
+    tmpDirs.push(join(tmpdir(), "design-loop"));
 
     const formData = new FormData();
     formData.append("file", new File(["hello world"], "doc.txt", { type: "text/plain" }));
@@ -127,7 +128,7 @@ describe("ui-server", () => {
 
   test("file upload supports multiple files", async () => {
     const { port, sourceDir } = await setupUiServer();
-    tmpDirs.push(join(sourceDir, ".design-loop"));
+    tmpDirs.push(join(tmpdir(), "design-loop"));
 
     const formData = new FormData();
     formData.append("file", new File([new Uint8Array(10)], "a.txt", { type: "text/plain" }));
