@@ -4,6 +4,7 @@ import { parseCliArgs, resolveConfig } from "../src/config.ts";
 import { startDesignLoop } from "../src/cli.ts";
 import { setLogLevel, type LogLevel } from "../src/logger.ts";
 import { runUpdateSafe } from "../src/update.ts";
+import pkg from "../package.json" with { type: "json" };
 
 const subcommand = process.argv[2];
 
@@ -49,8 +50,7 @@ Options:
 }
 
 if (values.version) {
-  const pkg = await import("../package.json", { with: { type: "json" } });
-  console.log(`design-loop v${pkg.default.version}`);
+  console.log(`design-loop v${pkg.version}`);
   process.exit(0);
 }
 
