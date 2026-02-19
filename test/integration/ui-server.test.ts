@@ -166,14 +166,4 @@ describe("ui-server", () => {
     expect(res.status).toBe(403);
   });
 
-  test("/api/send-to-engineer returns 501", async () => {
-    const { port } = await setupUiServer();
-
-    const res = await fetch(`http://127.0.0.1:${port}/api/send-to-engineer`, {
-      method: "POST",
-      headers: { origin: `http://127.0.0.1:${port}` },
-    });
-
-    expect(res.status).toBe(501);
-  });
 });

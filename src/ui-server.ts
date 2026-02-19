@@ -39,14 +39,6 @@ export async function startUiServer(
           }
         },
       },
-      "/api/send-to-engineer": {
-        POST: (req) => {
-          if (allowedOrigin && req.headers.get("origin") !== allowedOrigin) {
-            return new Response("Forbidden", { status: 403 });
-          }
-          return Response.json({ error: "Not yet implemented" }, { status: 501 });
-        },
-      },
     },
     fetch(_req) {
       return new Response("Not found", { status: 404 });
