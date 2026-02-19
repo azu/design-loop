@@ -13,8 +13,35 @@ Preview your site and Claude Code side by side in a single browser window — no
 - **Live Preview** — See changes in real-time with hot reload support (HMR, SSE).
 - **Single Window Workflow** — Preview and Claude Code terminal side by side in one browser tab. Replaces the three-app workflow (terminal + editor + browser).
 - **File Upload** — Drag-and-drop or paste images and files to include in design instructions.
+- **Design Mode** — Edit text and reorder elements directly in the browser. Changes are sent to Claude Code to update the source code.
 - **Dev Server Proxy** — Transparent proxy that preserves HMR/WebSocket connections and injects the selection overlay.
 - **Config File** (Experimental) — `.design-loop.json` for project-specific settings: dev server command, design tokens, and framework options.
+
+## Design Mode
+
+<video src="https://github.com/user-attachments/assets/43eab003-d422-4fc1-9695-1def1376f818" controls></video>
+
+Design Mode lets you visually edit the page and have Claude Code apply the changes to the source code.
+
+Click the "Design Mode" button in the toolbar to activate it. The button turns green when active. Design Mode and Select Element mode are mutually exclusive.
+
+### Text editing
+
+Click any text element (headings, paragraphs, buttons, links, etc.) to edit its content directly. Press Enter to confirm or Escape to cancel. IME input (Japanese, Chinese, Korean) is supported.
+
+### Drag and drop
+
+Drag elements to reorder them within their parent container. The drop indicator adapts to the layout direction — horizontal line for vertical layouts, vertical line for horizontal layouts (flex-row, grid).
+
+For text-editable elements like buttons, hold the mouse for 200ms to enable dragging. A short click opens text editing instead.
+
+### Applying changes
+
+Changes accumulate in a log. Click "Apply Changes" to send all changes to Claude Code at once. The changes are normalized before sending — duplicate moves on the same element are collapsed, and moves that return to the original position are removed.
+
+### Undo
+
+Press Cmd+Z (Mac) or Ctrl+Z (Windows/Linux) to undo the last change. This works both in the preview and the parent frame. The "Clear" button undoes all changes.
 
 ## Prerequisites
 
